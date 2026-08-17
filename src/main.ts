@@ -281,17 +281,36 @@ async function init() {
         }
     }
 
-    // ==========================================
+  // ==========================================
     // 🎵 ФОНОВА МУЗИКА (Підключена до UI)
     // ==========================================
     const bgMusic = new Audio('/assets/music/fonmusic.mp3');
     bgMusic.loop = true;
     bgMusic.volume = 0.4; 
     
-    // Використовуємо локальну змінну для контролю звуку в main.ts
     let isMutedLocally = false;
     let musicStarted = false;
     
+    // 🛑 НАДІЙНИЙ ТРЮК: Змушуємо і браузер, і сам PixiJS ловити перший клік
+    const startMusicOnFirstInteraction = () => {
+        if (!musicStarted && !isMutedLocally) {
+            musicStarted = true;
+            bgMusic.play().catch(() => console.log("Браузер все ще блокує автоплей"));
+        }
+        // Відписуємось, щоб не викликати це 100 разів
+        window.removeEventListener('click', startMusicOnFirstInteraction);
+        window.removeEventListener('pointerdown', startMusicOnFirstInteraction);
+        app.stage.off('pointerdown', startMusicOnFirstInteraction);
+    };
+    
+    // Вішаємо слухачі на вікно браузера
+    window.addEventListener('click', startMusicOnFirstInteraction);
+    window.addEventListener('pointerdown', startMusicOnFirstInteraction);
+
+    // І ГОЛОВНЕ: вішаємо слухач на саму головну сцену гри PixiJS!
+    app.stage.eventMode = 'static';
+    app.stage.on('pointerdown', startMusicOnFirstInteraction);
+
     // ВІШАЄМО КЛІК НА ТВОЮ КНОПКУ btnVolume З КЛАСУ UI
     ui.btnVolume.on('pointerdown', () => {
         isMutedLocally = !isMutedLocally;
@@ -310,7 +329,7 @@ async function init() {
             }
         }
     });
-
+    
     // ==========================================
     // КЛІК ПО КНОПЦІ SPIN
     // ==========================================
