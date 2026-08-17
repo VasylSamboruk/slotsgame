@@ -306,7 +306,7 @@ async function init() {
             // Якщо музика ще не запускалась — стартуємо
             if (!musicStarted) {
                 musicStarted = true;
-                bgMusic.play().catch(e => console.log("Чекаємо кліку"));
+                bgMusic.play().catch(() => console.log("Чекаємо кліку"));
             }
         }
     });
