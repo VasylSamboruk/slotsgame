@@ -1,4 +1,4 @@
-import { Application, Container, Assets, Sprite, Graphics } from 'pixi.js';
+import { Application, Container, Assets, Sprite, Graphics, Text } from 'pixi.js';
 import { SYMBOL_TEXTURES, LETTERS, CONFIG, generateSpinResult } from './config';
 import { calculateWins } from './winLogic';
 import { SlotUI } from './ui';
@@ -27,7 +27,7 @@ async function init() {
         '/assets/bg.png', '/assets/fon.png', 
         '/assets/pidkladka.png', '/assets/pidkladka2.png',
         '/assets/minusBTN.png', '/assets/plusBTN.png', '/assets/spinBTN.png',
-        '/assets/infoBtn.png', '/assets/volumeAdd.png', '/assets/volumeMin.png', // <--- ДОДАЙ ОЦІ ДВІ КАРТИНКИ
+        '/assets/infoBtn.png', '/assets/volumeAdd.png', '/assets/volumeMin.png',
 
         // --- КАДРИ АНІМАЦІЇ СКРИНІ ---
         '/assets/animation/sunduk1.png',
@@ -114,6 +114,7 @@ async function init() {
 
     const REEL_WIDTH = CONFIG.BG_WIDTH / CONFIG.REEL_COUNT; 
     const START_Y = - ((CONFIG.SYMBOLS_PER_REEL - 3) * CONFIG.ROW_SPACING);
+
     const reels: { container: Container, symbols: Sprite[] }[] = [];
 
     function applySymbolSize(symbol: Sprite, texturePath: string) {
@@ -130,7 +131,8 @@ async function init() {
     for (let i = 0; i < CONFIG.REEL_COUNT; i++) {
         const reelContainer = new Container();
         reelContainer.x = (-CONFIG.BG_WIDTH / 2) + (REEL_WIDTH / 2) + (i * REEL_WIDTH);
-        reelContainer.y = START_Y; 
+        reelContainer.y = START_Y;
+
         const reel = { container: reelContainer, symbols: [] as Sprite[] };
 
         for (let j = 0; j < CONFIG.SYMBOLS_PER_REEL; j++) {
@@ -155,10 +157,11 @@ async function init() {
     mainContainer.addChild(fon);
 
     let running = false;
-    let quickStopping = false; // ПРАПОРЕЦЬ ДЛЯ ШВИДКОЇ ЗУПИНКИ
+    let quickStopping = false;
+    // ПРАПОРЕЦЬ ДЛЯ ШВИДКОЇ ЗУПИНКИ
     let reelDone: boolean[] = [];
 
-    const ui = new SlotUI(10000); 
+    const ui = new SlotUI(10000);
     ui.isSpinning = () => running; 
     mainContainer.addChild(ui.container);
 
@@ -173,10 +176,11 @@ async function init() {
                 for (let i = 0; i < reels.length; i++) {
                     if (!reelDone[i]) {
                         // 🛑 ДОДАТКОВА ОЧИСТКА: Вбиваємо рух і самого контейнера, і його координат
-                        killTweensOf(reels[i].container); 
+                        killTweensOf(reels[i].container);
                         killTweensOf(reels[i].container.position); 
                         reels[i].container.y = 0; // Примусово ставимо барабан у кінець
-                        onReelComplete(i); // Завершуємо логіку
+                        onReelComplete(i);
+                        // Завершуємо логіку
                     }
                 }
             }
@@ -200,7 +204,7 @@ async function init() {
         quickStopping = false;
         reelsFinished = 0;
         reelDone = [false, false, false, false, false];
-        winLinesGraphic.clear(); 
+        winLinesGraphic.clear();
         
         reels.forEach(reel => {
             // ==========================================
@@ -218,29 +222,49 @@ async function init() {
                 symbol.y = (j - 1) * CONFIG.ROW_SPACING; 
             });
         });
-
+        
         currentResultGrid = generateSpinResult();
 
         for (let i = 0; i < reels.length; i++) {
             const reel = reels[i];
+            
             for (let r = 0; r < CONFIG.ROW_COUNT; r++) {
                 const targetTexture = currentResultGrid[i][r];
                 const symbol = reel.symbols[r];
                 symbol.texture = Assets.get(targetTexture);
                 applySymbolSize(symbol, targetTexture);
             }
+            
             for (let j = 3; j < CONFIG.SYMBOLS_PER_REEL - 3; j++) {
                 const randomTexture = SYMBOL_TEXTURES[Math.floor(Math.random() * Math.min(11, SYMBOL_TEXTURES.length))];
                 reel.symbols[j].texture = Assets.get(randomTexture);
                 applySymbolSize(reel.symbols[j], randomTexture);
             }
-            const time = 1000 + i * 250; 
-            tweenTo(reel.container, 'y', 0, time, backout(0.4), null, () => onReelComplete(i));
+            
+            // 🏎️ ЛОГІКА ТРЬОХ ШВИДКОСТЕЙ 🏎️
+            let baseTime = 1500;      // Скільки крутиться перший барабан
+            let delayPerReel = 500;   // Затримка між зупинками наступних
+            let easeFunc = backout(0.4); // Анімація відскоку (пружинки)
+
+            if ((window as any).currentSpeed === 2) {
+                // Швидкість 2 (Зайчик)
+                baseTime = 500;
+                delayPerReel = 150;
+                easeFunc = backout(0.2); 
+            } else if ((window as any).currentSpeed === 3) {
+                // Швидкість 3 (Блискавка)
+                baseTime = 200;
+                delayPerReel = 50;
+                easeFunc = lerp; // Пряма зупинка без відскоку для турбо-режиму
+            }
+
+            const time = baseTime + (i * delayPerReel);
+            tweenTo(reel.container, 'y', 0, time, easeFunc, null, () => onReelComplete(i));
         }
     }
 
     function onReelComplete(reelIndex: number) {
-        if (reelDone[reelIndex]) return; 
+        if (reelDone[reelIndex]) return;
         reelDone[reelIndex] = true;
         
         const reel = reels[reelIndex];
@@ -264,24 +288,24 @@ async function init() {
         }
         
         // Телепортуємо барабан точно на місце
-        reel.container.y = START_Y; 
+        reel.container.y = START_Y;
+        
         reelsFinished++;
 
         if (reelsFinished === CONFIG.REEL_COUNT) {
             // ТЕПЕР МИ НА 100% ВПЕВНЕНІ, ЩО ЕКРАН НЕ БРЕШЕ
             const wins = calculateWins(currentResultGrid, ui.currentBet);
-            
             if (wins.length > 0) {
                 playWinAnimation(wins, reels, winLinesGraphic, ui, () => {
                     running = false; 
                 });
             } else {
-                running = false; 
+                running = false;
             }
         }
     }
 
-  // ==========================================
+    // ==========================================
     // 🎵 ФОНОВА МУЗИКА (Підключена до UI)
     // ==========================================
     const bgMusic = new Audio('/assets/music/fonmusic.mp3');
@@ -306,11 +330,11 @@ async function init() {
     // Вішаємо слухачі на вікно браузера
     window.addEventListener('click', startMusicOnFirstInteraction);
     window.addEventListener('pointerdown', startMusicOnFirstInteraction);
-
+    
     // І ГОЛОВНЕ: вішаємо слухач на саму головну сцену гри PixiJS!
     app.stage.eventMode = 'static';
     app.stage.on('pointerdown', startMusicOnFirstInteraction);
-
+    
     // ВІШАЄМО КЛІК НА ТВОЮ КНОПКУ btnVolume З КЛАСУ UI
     ui.btnVolume.on('pointerdown', () => {
         isMutedLocally = !isMutedLocally;
@@ -329,7 +353,45 @@ async function init() {
             }
         }
     });
+
+    // ==========================================
+    // ⏩ КНОПКА ШВИДКОСТІ (СМАЙЛИКИ)
+    // ==========================================
+    (window as any).currentSpeed = 1; // Записуємо глобально, щоб startPlay точно побачила
+
+    const speedBtn = new Text({
+        text: '🐢 x1',
+        style: {
+            fontFamily: 'Skranji', 
+            fontSize: 42,
+            fill: 0xffd700, 
+            stroke: { color: 0x000000, width: 5 }
+        }
+    });
     
+    speedBtn.anchor.set(0.5);
+    speedBtn.x = ui.btnSpin.x + 180;
+    speedBtn.y = ui.btnSpin.y;
+    speedBtn.eventMode = 'static';
+    speedBtn.cursor = 'pointer';
+    ui.container.addChild(speedBtn);
+
+    speedBtn.on('pointerdown', () => {
+        (window as any).currentSpeed++;
+        if ((window as any).currentSpeed > 3) (window as any).currentSpeed = 1;
+
+        if ((window as any).currentSpeed === 1) {
+            speedBtn.text = '🐢 x1'; 
+        } else if ((window as any).currentSpeed === 2) {
+            speedBtn.text = '🐇 x2'; 
+        } else {
+            speedBtn.text = '⚡ x3'; 
+        }
+        
+        speedBtn.scale.set(0.8);
+        setTimeout(() => speedBtn.scale.set(1), 100);
+    });
+
     // ==========================================
     // КЛІК ПО КНОПЦІ SPIN
     // ==========================================
