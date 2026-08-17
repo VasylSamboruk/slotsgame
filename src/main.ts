@@ -52,6 +52,25 @@ async function init() {
         '/assets/animation/d3_5.png',
         '/assets/animation/d3_6.png',
 
+        // --- КАДРИ АНІМАЦІЇ WILD ---
+        '/assets/animation/wild1.png',
+        '/assets/animation/wild2.png',
+        '/assets/animation/wild3.png',
+
+        // --- КАДРИ АНІМАЦІЇ ДРАКОНА 1 (d1) ---
+        '/assets/animation/d1_1.png',
+        '/assets/animation/d1_2.png',
+        '/assets/animation/d1_3.png',
+        '/assets/animation/d1_4.png',
+        '/assets/animation/d1_5.png',
+
+        // --- КАДРИ АНІМАЦІЇ ЧЕРВОНОГО ДРАКОНА (d4) ---
+        '/assets/animation/d4_1.png',
+        '/assets/animation/d4_2.png',
+        '/assets/animation/d4_3.png',
+        '/assets/animation/d4_4.png',
+        '/assets/animation/d4_5.png',
+
         ...SYMBOL_TEXTURES
     ]);
 

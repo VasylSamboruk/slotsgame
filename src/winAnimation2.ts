@@ -133,6 +133,108 @@ export function playScrollAnimation(sprite: Sprite, symbolTexture: string, baseS
     animateCustomPulse(animSprite, baseSX, baseSY, 1.05, 550, 750);
 }
 
+// =================================================================
+// 🐲 БЛОК АНІМАЦІЙ ДРАКОНА 1 (D1)
+// =================================================================
+export function playDragon1Animation(sprite: Sprite, symbolTexture: string, baseSX: number, baseSY: number) {
+    if (!(sprite as any).isWinningAnim) return;
+
+    const frames = [
+        Assets.get(symbolTexture), // Базовий кадр d1.png
+        Assets.get('/assets/animation/d1_1.png'),
+        Assets.get('/assets/animation/d1_2.png'),
+        Assets.get('/assets/animation/d1_3.png'),
+        Assets.get('/assets/animation/d1_4.png'),
+        Assets.get('/assets/animation/d1_5.png'),
+    ];
+
+    const animSprite = new AnimatedSprite(frames);
+    animSprite.anchor.set(0.5);
+    animSprite.width = sprite.width;
+    animSprite.height = sprite.height;
+
+    animSprite.animationSpeed = 0.08; // Швидкість анімації
+    animSprite.loop = true;
+    animSprite.play();
+
+    (sprite as any).animSprite = animSprite;
+
+    sprite.visible = false;
+    sprite.parent!.addChild(animSprite);
+    animSprite.x = sprite.x;
+    animSprite.y = sprite.y;
+
+    // Пульсація
+    animateCustomPulse(animSprite, baseSX, baseSY, 1.06, 500, 700);
+}
+
+// =================================================================
+// 🐉 БЛОК АНІМАЦІЙ ЧЕРВОНОГО ДРАКОНА (D4)
+// =================================================================
+export function playDragon4Animation(sprite: Sprite, symbolTexture: string, baseSX: number, baseSY: number) {
+    if (!(sprite as any).isWinningAnim) return;
+
+    const frames = [
+        Assets.get(symbolTexture), // Базовий кадр d4.png
+        Assets.get('/assets/animation/d4_1.png'),
+        Assets.get('/assets/animation/d4_2.png'),
+        Assets.get('/assets/animation/d4_3.png'),
+        Assets.get('/assets/animation/d4_4.png'),
+        Assets.get('/assets/animation/d4_5.png'),
+    ];
+
+    const animSprite = new AnimatedSprite(frames);
+    animSprite.anchor.set(0.5);
+    animSprite.width = sprite.width;
+    animSprite.height = sprite.height;
+
+    animSprite.animationSpeed = 0.1; // Швидкість анімації
+    animSprite.loop = true;
+    animSprite.play();
+
+    (sprite as any).animSprite = animSprite;
+
+    sprite.visible = false;
+    sprite.parent!.addChild(animSprite);
+    animSprite.x = sprite.x;
+    animSprite.y = sprite.y;
+
+    // Пульсація
+    animateCustomPulse(animSprite, baseSX, baseSY, 1.06, 500, 700);
+}
+
+// =================================================================
+// 🃏 БЛОК АНІМАЦІЙ WILD
+// =================================================================
+export function playWildAnimation(sprite: Sprite, symbolTexture: string, baseSX: number, baseSY: number) {
+    if (!(sprite as any).isWinningAnim) return;
+
+    const frames = [
+        Assets.get(symbolTexture), // Базовий кадр wild.png
+        Assets.get('/assets/animation/wild1.png'),
+        Assets.get('/assets/animation/wild2.png'),
+        Assets.get('/assets/animation/wild3.png'),
+    ];
+
+    const animSprite = new AnimatedSprite(frames);
+    animSprite.anchor.set(0.5);
+    animSprite.width = sprite.width;
+    animSprite.height = sprite.height;
+
+    animSprite.animationSpeed = 0.05;
+    animSprite.loop = true;
+    animSprite.play();
+
+    (sprite as any).animSprite = animSprite;
+
+    sprite.visible = false;
+    sprite.parent!.addChild(animSprite);
+    animSprite.x = sprite.x;
+    animSprite.y = sprite.y;
+
+    animateCustomPulse(animSprite, baseSX, baseSY, 1.05, 500, 700);
+}
+
 // ==========================================
 // 🎛️ УНІВЕРСАЛЬНА ПУЛЬСАЦІЯ ДЛЯ ПОКАДРОВИХ АНІМАЦІЙ
 // ==========================================

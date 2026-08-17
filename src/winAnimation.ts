@@ -5,8 +5,7 @@ import { SlotUI } from './ui';
 import { tweenTo, lerp, backout, killTweensOf } from './animations';
 
 // 🔥 ІМПОРТУЄМО ПОКАДРОВІ АНІМАЦІЇ З НОВОГО ФАЙЛУ 🔥
-// 🔥 ІМПОРТУЄМО ПОКАДРОВІ АНІМАЦІЇ З НОВОГО ФАЙЛУ 🔥
-import { playChestAnimation, playDragon2Animation, playScrollAnimation, playDragon3Animation } from './winAnimation2';
+import { playChestAnimation, playDragon2Animation, playScrollAnimation, playDragon3Animation, playWildAnimation, playDragon1Animation, playDragon4Animation } from './winAnimation2';
 
 // ==========================================
 // ЗУПИНКА АНІМАЦІЙ (Викликається при новому спіні)
@@ -60,19 +59,27 @@ export function stopWinAnimations(reels: { container: Container, symbols: Sprite
 // ==========================================
 function playSymbolAnimation(sprite: Sprite, symbolTexture: string, baseSX: number, baseSY: number, gen: number) {
     const isChest = symbolTexture.includes('chest') || symbolTexture.includes('sunduk');
+    const isDragon1 = symbolTexture.includes('d1');
     const isDragon2 = symbolTexture.includes('d2');
-    const isDragon3 = symbolTexture.includes('d3'); // 🛑 Додали перевірку на синього дракона
+    const isDragon3 = symbolTexture.includes('d3');
+    const isDragon4 = symbolTexture.includes('d4'); // 🛑 ДОДАЛИ ПЕРЕВІРКУ НА D4
     const isScroll = symbolTexture.includes('svitok') || symbolTexture.includes('scroll');
+    const isWild = symbolTexture.includes('wild');
 
-    // Викликаємо імпортовані функції, якщо це складний символ
     if (isChest) {
         playChestAnimation(sprite, symbolTexture, baseSX, baseSY);
+    } else if (isDragon1) {
+        playDragon1Animation(sprite, symbolTexture, baseSX, baseSY);
     } else if (isDragon2) {
         playDragon2Animation(sprite, symbolTexture, baseSX, baseSY);
     } else if (isDragon3) {
-        playDragon3Animation(sprite, symbolTexture, baseSX, baseSY); // 🛑 Викликаємо анімацію d3
+        playDragon3Animation(sprite, symbolTexture, baseSX, baseSY);
+    } else if (isDragon4) { // 🛑 ВИКЛИКАЄМО АНІМАЦІЮ D4
+        playDragon4Animation(sprite, symbolTexture, baseSX, baseSY);
     } else if (isScroll) {
         playScrollAnimation(sprite, symbolTexture, baseSX, baseSY); 
+    } else if (isWild) {
+        playWildAnimation(sprite, symbolTexture, baseSX, baseSY);
     } else {
         animateBasicWin(sprite, baseSX, baseSY, gen);
     }
@@ -152,17 +159,7 @@ export function playWinAnimation(
     wins.forEach(win => {
         totalWinAmount += win.amount;
 
-        // 🎨 МАЛЮЄМО ЗОЛОТІ ЛІНІЇ, ЩОБ БАЧИТИ КОМБІНАЦІЇ 🎨
-        win.positions.forEach((pos, i) => {
-            const x = reels[pos.c].container.x;
-            const y = (pos.r - 1) * CONFIG.ROW_SPACING;
-            
-            if (i === 0) {
-                winLinesGraphic.moveTo(x, y);
-            } else {
-                winLinesGraphic.lineTo(x, y);
-            }
-        });
+    
         
         // Обводимо лінію (PixiJS v8)
         winLinesGraphic.stroke({ width: 8, color: 0xffd700, alpha: 0.8 });
