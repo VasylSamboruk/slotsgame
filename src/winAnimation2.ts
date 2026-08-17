@@ -204,6 +204,41 @@ export function playDragon4Animation(sprite: Sprite, symbolTexture: string, base
 }
 
 // =================================================================
+// 🎁 БЛОК АНІМАЦІЙ БОНУСА (BONUS)
+// =================================================================
+export function playBonusAnimation(sprite: Sprite, symbolTexture: string, baseSX: number, baseSY: number) {
+    if (!(sprite as any).isWinningAnim) return;
+
+    const frames = [
+        Assets.get(symbolTexture), // Базовий кадр bonus.png
+        Assets.get('/assets/animation/bonus1.png'),
+        Assets.get('/assets/animation/bonus2.png'),
+        Assets.get('/assets/animation/bonus3.png'),
+        Assets.get('/assets/animation/bonus4.png'),
+        Assets.get('/assets/animation/bonus5.png'),
+    ];
+
+    const animSprite = new AnimatedSprite(frames);
+    animSprite.anchor.set(0.5);
+    animSprite.width = sprite.width;
+    animSprite.height = sprite.height;
+
+    animSprite.animationSpeed = 0.1; // Швидкість анімації
+    animSprite.loop = true;
+    animSprite.play();
+
+    (sprite as any).animSprite = animSprite;
+
+    sprite.visible = false;
+    sprite.parent!.addChild(animSprite);
+    animSprite.x = sprite.x;
+    animSprite.y = sprite.y;
+
+    // Пульсація
+    animateCustomPulse(animSprite, baseSX, baseSY, 1.06, 500, 700);
+}
+
+// =================================================================
 // 🃏 БЛОК АНІМАЦІЙ WILD
 // =================================================================
 export function playWildAnimation(sprite: Sprite, symbolTexture: string, baseSX: number, baseSY: number) {

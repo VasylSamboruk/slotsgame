@@ -71,6 +71,15 @@ async function init() {
         '/assets/animation/d4_4.png',
         '/assets/animation/d4_5.png',
 
+
+        // --- КАДРИ АНІМАЦІЇ БОНУСА (bonus) ---
+        '/assets/animation/bonus1.png',
+        '/assets/animation/bonus2.png',
+        '/assets/animation/bonus3.png',
+        '/assets/animation/bonus4.png',
+        '/assets/animation/bonus5.png',
+
+        
         ...SYMBOL_TEXTURES
     ]);
 
@@ -272,7 +281,46 @@ async function init() {
         }
     }
 
+    // ==========================================
+    // 🎵 ФОНОВА МУЗИКА (Підключена до UI)
+    // ==========================================
+    const bgMusic = new Audio('/assets/music/fonmusic.mp3');
+    bgMusic.loop = true;
+    bgMusic.volume = 0.4; 
+    
+    // Використовуємо локальну змінну для контролю звуку в main.ts
+    let isMutedLocally = false;
+    let musicStarted = false;
+    
+    // ВІШАЄМО КЛІК НА ТВОЮ КНОПКУ btnVolume З КЛАСУ UI
+    ui.btnVolume.on('pointerdown', () => {
+        isMutedLocally = !isMutedLocally;
+        bgMusic.muted = isMutedLocally;
+        
+        // Змінюємо текстуру на твоїй кнопці
+        if (isMutedLocally) {
+            ui.btnVolume.texture = Assets.get('/assets/volumeMin.png'); 
+        } else {
+            ui.btnVolume.texture = Assets.get('/assets/volumeAdd.png'); 
+            
+            // Якщо музика ще не запускалась — стартуємо
+            if (!musicStarted) {
+                musicStarted = true;
+                bgMusic.play().catch(e => console.log("Чекаємо кліку"));
+            }
+        }
+    });
+
+    // ==========================================
+    // КЛІК ПО КНОПЦІ SPIN
+    // ==========================================
     ui.btnSpin.on('pointerdown', () => {
+        // Запуск музики при першому кліку на Spin (обхід блокування браузера)
+        if (!musicStarted && !isMutedLocally) {
+            musicStarted = true;
+            bgMusic.play().catch(e => console.log("Помилка звуку:", e));
+        }
+
         animateSpinButton(ui.btnSpin, 290);
         startPlay(); 
     });

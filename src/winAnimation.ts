@@ -5,7 +5,8 @@ import { SlotUI } from './ui';
 import { tweenTo, lerp, backout, killTweensOf } from './animations';
 
 // 🔥 ІМПОРТУЄМО ПОКАДРОВІ АНІМАЦІЇ З НОВОГО ФАЙЛУ 🔥
-import { playChestAnimation, playDragon2Animation, playScrollAnimation, playDragon3Animation, playWildAnimation, playDragon1Animation, playDragon4Animation } from './winAnimation2';
+import { playChestAnimation, playDragon2Animation, playScrollAnimation, playDragon3Animation, playWildAnimation, playDragon1Animation, playDragon4Animation, playBonusAnimation } from './winAnimation2';
+
 
 // ==========================================
 // ЗУПИНКА АНІМАЦІЙ (Викликається при новому спіні)
@@ -62,9 +63,10 @@ function playSymbolAnimation(sprite: Sprite, symbolTexture: string, baseSX: numb
     const isDragon1 = symbolTexture.includes('d1');
     const isDragon2 = symbolTexture.includes('d2');
     const isDragon3 = symbolTexture.includes('d3');
-    const isDragon4 = symbolTexture.includes('d4'); // 🛑 ДОДАЛИ ПЕРЕВІРКУ НА D4
+    const isDragon4 = symbolTexture.includes('d4');
     const isScroll = symbolTexture.includes('svitok') || symbolTexture.includes('scroll');
     const isWild = symbolTexture.includes('wild');
+    const isBonus = symbolTexture.includes('bonus'); // 🛑 ДОДАЛИ ПЕРЕВІРКУ НА БОНУС
 
     if (isChest) {
         playChestAnimation(sprite, symbolTexture, baseSX, baseSY);
@@ -74,12 +76,14 @@ function playSymbolAnimation(sprite: Sprite, symbolTexture: string, baseSX: numb
         playDragon2Animation(sprite, symbolTexture, baseSX, baseSY);
     } else if (isDragon3) {
         playDragon3Animation(sprite, symbolTexture, baseSX, baseSY);
-    } else if (isDragon4) { // 🛑 ВИКЛИКАЄМО АНІМАЦІЮ D4
+    } else if (isDragon4) {
         playDragon4Animation(sprite, symbolTexture, baseSX, baseSY);
     } else if (isScroll) {
         playScrollAnimation(sprite, symbolTexture, baseSX, baseSY); 
     } else if (isWild) {
         playWildAnimation(sprite, symbolTexture, baseSX, baseSY);
+    } else if (isBonus) { // 🛑 ВИКЛИКАЄМО АНІМАЦІЮ БОНУСА
+        playBonusAnimation(sprite, symbolTexture, baseSX, baseSY);
     } else {
         animateBasicWin(sprite, baseSX, baseSY, gen);
     }
