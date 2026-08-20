@@ -22,7 +22,12 @@ async function init() {
     await customFont.load();
     document.fonts.add(customFont);
 
-    await app.init({ resizeTo: window, backgroundColor: 0x1a1a24 });
+    await app.init({ 
+        resizeTo: window, 
+        backgroundColor: 0x1a1a24,
+        resolution: window.devicePixelRatio || 1, // 👈 Рендеримо під реальну щільність пікселів екрана телефона
+        autoDensity: true                         // 👈 Автоматично масштабує полотно під Retina-екрани
+    });
     document.body.appendChild(app.canvas);
 
     await Assets.load([
@@ -102,6 +107,7 @@ async function init() {
         ...SYMBOL_TEXTURES
     ]);
 
+    
     const mainContainer = new Container();
     app.stage.addChild(mainContainer);
 
