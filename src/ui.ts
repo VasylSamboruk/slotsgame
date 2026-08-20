@@ -393,10 +393,10 @@ export class SlotUI {
     private updateWinThemeByProgress(currentAmount: number) {
         const currentMultiplier = currentAmount / this.currentBet;
         
-        // 🌟 Чистий нейтральний золото-кремовий колір для станку та малих виграшів (< x10)
+        // 🌟 Базові кольори для простих/малих виграшів (< x10) — м'яке золото і темна СІРА обводка
         let themeColor = 0xffefcc; 
-        let strokeColor = 0x3e1d04;
-        let dropColor = 0xab5f17;
+        let strokeColor = 0x222222; // Темно-сірий контур для простого виграшу
+        let dropColor = 0x111111;
 
         if (currentMultiplier >= 50) {
             themeColor = 0xb800ff; // Фіолетовий (Mega Win)
@@ -417,9 +417,9 @@ export class SlotUI {
         // Оновлюємо колір світіння
         this.winGlow.clear();
         this.winGlow.circle(0, 0, 250);
-        this.winGlow.fill({ color: themeColor, alpha: 0.6 });
+        this.winGlow.fill({ color: themeColor, alpha: currentMultiplier >= 10 ? 0.6 : 0.2 }); // При малих виграшах світіння ледь помітне
 
-        // Оновлюємо стиль тексту
+        // Оновлюємо стиль тексту з правильним контуром
         this.winText.style = new TextStyle({
             fontFamily: 'Skranji',
             fontSize: 85,
