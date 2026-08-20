@@ -5,7 +5,7 @@ import { SlotUI } from './ui';
 import { tweenTo, lerp, backout, animateSpinButton, killTweensOf } from './animations';
 import { playWinAnimation, stopWinAnimations } from './winAnimation';
 import { showBigWinOverlay } from './bigWin';
-import { animateFon } from './fonAnimation'; // ДОДАНО: Імпорт анімації фону
+import { animateFon } from './fonAnimation';
 
 const app = new Application();
 
@@ -31,8 +31,7 @@ async function init() {
         '/assets/minusBTN.png', '/assets/plusBTN.png', '/assets/spinBTN.png',
         '/assets/infoBtn.png', '/assets/volumeAdd.png', '/assets/volumeMin.png',
 
-        // --- ДОДАНО: КАДРИ АНІМАЦІЇ ФОНУ (РАМКИ) ---
-
+        // --- КАДРИ АНІМАЦІЇ ФОНУ (РАМКИ) ---
         '/assets/animation/fon2.png',
         '/assets/animation/fon3.png',
         '/assets/animation/fon3.png',
@@ -42,7 +41,6 @@ async function init() {
         '/assets/animation/fon7.png',
         '/assets/animation/fon8.png',
         '/assets/animation/fon9.png',
-    
 
         // --- КАДРИ АНІМАЦІЇ СКРИНІ ---
         '/assets/animation/sunduk1.png',
@@ -86,7 +84,6 @@ async function init() {
         '/assets/animation/d4_4.png',
         '/assets/animation/d4_5.png',
 
-
         // --- КАДРИ АНІМАЦІЇ БОНУСА (bonus) ---
         '/assets/animation/bonus1.png',
         '/assets/animation/bonus2.png',
@@ -99,7 +96,9 @@ async function init() {
         '/assets/niceWin.png',
         '/assets/megaWin.png',
         
-        
+        '/assets/speed.png',
+        '/assets/avtospin.png',
+
         ...SYMBOL_TEXTURES
     ]);
 
@@ -119,7 +118,6 @@ async function init() {
 
     const bg = Sprite.from('/assets/bg.png');
     bg.anchor.set(0.5);
-    
     mainContainer.addChild(bg);
 
     const reelsContainer = new Container();
@@ -177,12 +175,10 @@ async function init() {
     fon.anchor.set(0.5);
     mainContainer.addChild(fon);
 
-    // ДОДАНО: ЗАПУСКАЄМО АНІМАЦІЮ РАМКИ
     animateFon(fon);
 
     let running = false;
     let quickStopping = false;
-    // ПРАПОРЕЦЬ ДЛЯ ШВИДКОЇ ЗУПИНКИ
     let reelDone: boolean[] = [];
 
     const ui = new SlotUI(10000);
@@ -193,18 +189,15 @@ async function init() {
     let currentResultGrid: string[][] = [];
 
     function startPlay() {
-        // ЯКЩО ВЖЕ КРУТИТЬСЯ - МИТТЄВА ЗУПИНКА!
         if (running) {
             if (!quickStopping && reelsFinished < CONFIG.REEL_COUNT) {
                 quickStopping = true;
                 for (let i = 0; i < reels.length; i++) {
                     if (!reelDone[i]) {
-                        // 🛑 ДОДАТКОВА ОЧИСТКА: Вбиваємо рух і самого контейнера, і його координат
                         killTweensOf(reels[i].container);
                         killTweensOf(reels[i].container.position); 
-                        reels[i].container.y = 0; // Примусово ставимо барабан у кінець
+                        reels[i].container.y = 0; 
                         onReelComplete(i);
-                        // Завершуємо логіку
                     }
                 }
             }
@@ -212,6 +205,8 @@ async function init() {
         }
 
         if (!ui.deductBet()) {
+            // Якщо закінчилися гроші — вимикаємо автоспін автоматично
+            (window as any).isAutoSpinActive = false;
             tweenTo(ui.winText, 'alpha', 1, 300, lerp, null, () => {
                 setTimeout(() => { tweenTo(ui.winText, 'alpha', 0, 500, lerp, null, null); }, 1500);
             });
@@ -220,9 +215,6 @@ async function init() {
 
         running = true;
         
-        // ==========================================
-        // ЗУПИНЯЄМО АНІМАЦІЮ МИНУЛОГО ВИГРАШУ
-        // ==========================================
         stopWinAnimations(reels);
         
         quickStopping = false;
@@ -231,11 +223,6 @@ async function init() {
         winLinesGraphic.clear();
         
         reels.forEach(reel => {
-            // ==========================================
-            // 🛑 НАЙГОЛОВНІШИЙ ФІКС ДЛЯ ШВИДКОГО КЛІКУ
-            // Завжди жорстко скидаємо всі залишкові рухи 
-            // і повертаємо барабан на початкову точку (START_Y)
-            // ==========================================
             killTweensOf(reel.container);
             killTweensOf(reel.container.position);
             reel.container.y = START_Y; 
@@ -265,21 +252,18 @@ async function init() {
                 applySymbolSize(reel.symbols[j], randomTexture);
             }
             
-            // 🏎️ ЛОГІКА ТРЬОХ ШВИДКОСТЕЙ 🏎️
-            let baseTime = 1500;      // Скільки крутиться перший барабан
-            let delayPerReel = 500;   // Затримка між зупинками наступних
-            let easeFunc = backout(0.4); // Анімація відскоку (пружинки)
+            let baseTime = 1500;      
+            let delayPerReel = 500;   
+            let easeFunc = backout(0.4); 
 
             if ((window as any).currentSpeed === 2) {
-                // Швидкість 2 (Зайчик)
                 baseTime = 500;
                 delayPerReel = 150;
                 easeFunc = backout(0.2); 
             } else if ((window as any).currentSpeed === 3) {
-                // Швидкість 3 (Блискавка)
                 baseTime = 200;
                 delayPerReel = 50;
-                easeFunc = lerp; // Пряма зупинка без відскоку для турбо-режиму
+                easeFunc = lerp; 
             }
 
             const time = baseTime + (i * delayPerReel);
@@ -293,50 +277,64 @@ async function init() {
         
         const reel = reels[reelIndex];
         
-        // 🛑 ЖОРСТКА СИНХРОНІЗАЦІЯ ЕКРАНУ І ПАМ'ЯТІ 🛑
         for (let r = 0; r < CONFIG.ROW_COUNT; r++) {
-            // Беремо реальний символ з математичного масиву (з мозку)
             const targetTexture = currentResultGrid[reelIndex][r];
-            
-            // Знаходимо верхній (схований) і нижній (видимий) символи
             const topSymbol = reel.symbols[r];
             const bottomSymbol = reel.symbols[CONFIG.SYMBOLS_PER_REEL - 3 + r];
             
-            // ПРИМУСОВО натягуємо правильні картинки з пам'яті на екран
             topSymbol.texture = Assets.get(targetTexture);
             bottomSymbol.texture = Assets.get(targetTexture);
             
-            // Оновлюємо розміри, щоб символи не сплющувались
             applySymbolSize(topSymbol, targetTexture);
             applySymbolSize(bottomSymbol, targetTexture);
         }
         
-        // Телепортуємо барабан точно на місце
         reel.container.y = START_Y;
-        
         reelsFinished++;
 
         if (reelsFinished === CONFIG.REEL_COUNT) {
             const wins = calculateWins(currentResultGrid, ui.currentBet);
             
             if (wins.length > 0) {
-                // Вираховуємо загальну суму виграшу для передачі в банер
                 const totalWinAmount = wins.reduce((sum, win) => sum + win.amount, 0);
 
                 playWinAnimation(wins, reels, winLinesGraphic, ui, () => {
-                    // Коли лінії показали виграш, перевіряємо, чи треба банер Big Win
+                    // Це спрацьовує КОЛИ ЦИФРИ ПОВНІСТЮ ДОБІГЛИ ДО КІНЦЯ
                     showBigWinOverlay(mainContainer, totalWinAmount, ui.currentBet, () => {
+                        // Якщо вилазив великий банер (Big/Mega Win) — закрили його, 
+                        // ставимо running = false і даємо паузу 2 секунди перед новим спіном
                         running = false; 
+                        if ((window as any).isAutoSpinActive) {
+                            (window as any).triggerAutoSpin(2000); // 👈 2 секунди паузи після банера
+                        }
                     });
                 });
+
+                // Якщо це звичайний виграш (без великого банера, менше x10), 
+                // цифри накрутилися і зупинилися. Чекаємо 2 секунди і запускаємо автоспін!
+                if (totalWinAmount / ui.currentBet < 10) {
+                    // Тривалість накрутки для звичайного виграшу у нас 2000мс, 
+                    // тому ставимо перевірку / таймаут після завершення накрутки:
+                    setTimeout(() => {
+                        running = false;
+                        if ((window as any).isAutoSpinActive) {
+                            (window as any).triggerAutoSpin(2000); // 👈 рівно 2 секунди паузи після того, як цифри зупинилися
+                        }
+                    }, 2000); // Час накрутки Nice Win
+                }
+
             } else {
+                // Виграшу немає — запускаємо новий прокрут одразу (без затримки)
                 running = false;
+                if ((window as any).isAutoSpinActive) {
+                    (window as any).triggerAutoSpin(0); // 👈 без затримки для пустих спінів
+                }
             }
         }
     }
 
     // ==========================================
-    // 🎵 ФОНОВА МУЗИКА (Підключена до UI)
+    // 🎵 ФОНОВА МУЗИКА
     // ==========================================
     const bgMusic = new Audio('/assets/music/fonmusic.mp3');
     bgMusic.loop = true;
@@ -345,38 +343,30 @@ async function init() {
     let isMutedLocally = false;
     let musicStarted = false;
     
-    // 🛑 НАДІЙНИЙ ТРЮК: Змушуємо і браузер, і сам PixiJS ловити перший клік
     const startMusicOnFirstInteraction = () => {
         if (!musicStarted && !isMutedLocally) {
             musicStarted = true;
-            bgMusic.play().catch(() => console.log("Браузер все ще блокує автоплей"));
+            bgMusic.play().catch(() => console.log("Браузер блокує автоплей"));
         }
-        // Відписуємось, щоб не викликати це 100 разів
         window.removeEventListener('click', startMusicOnFirstInteraction);
         window.removeEventListener('pointerdown', startMusicOnFirstInteraction);
         app.stage.off('pointerdown', startMusicOnFirstInteraction);
     };
     
-    // Вішаємо слухачі на вікно браузера
     window.addEventListener('click', startMusicOnFirstInteraction);
     window.addEventListener('pointerdown', startMusicOnFirstInteraction);
     
-    // І ГОЛОВНЕ: вішаємо слухач на саму головну сцену гри PixiJS!
     app.stage.eventMode = 'static';
     app.stage.on('pointerdown', startMusicOnFirstInteraction);
     
-    // ВІШАЄМО КЛІК НА ТВОЮ КНОПКУ btnVolume З КЛАСУ UI
     ui.btnVolume.on('pointerdown', () => {
         isMutedLocally = !isMutedLocally;
         bgMusic.muted = isMutedLocally;
         
-        // Змінюємо текстуру на твоїй кнопці
         if (isMutedLocally) {
             ui.btnVolume.texture = Assets.get('/assets/volumeMin.png'); 
         } else {
             ui.btnVolume.texture = Assets.get('/assets/volumeAdd.png'); 
-            
-            // Якщо музика ще не запускалась — стартуємо
             if (!musicStarted) {
                 musicStarted = true;
                 bgMusic.play().catch(() => console.log("Чекаємо кліку"));
@@ -385,48 +375,49 @@ async function init() {
     });
 
     // ==========================================
-    // ⏩ КНОПКА ШВИДКОСТІ (СМАЙЛИКИ)
+    // ⚡ КНОПКА ШВИДКОСТІ
     // ==========================================
-    (window as any).currentSpeed = 1; // Записуємо глобально, щоб startPlay точно побачила
+    (window as any).currentSpeed = 1; 
 
-    const speedBtn = new Text({
-        text: '🐢 x1',
+    const speedContainer = new Container();
+    speedContainer.x = 230; 
+    speedContainer.y = 670;  
+    speedContainer.eventMode = 'static';
+    speedContainer.cursor = 'pointer';
+    ui.container.addChild(speedContainer);
+
+    const speedBg = Sprite.from('/assets/speed.png'); 
+    speedBg.anchor.set(0.5);
+    speedBg.height = 220; 
+    speedBg.scale.x = speedBg.scale.y; 
+    speedContainer.addChild(speedBg);
+
+    const speedText = new Text({
+        text: 'x1',
         style: {
             fontFamily: 'Skranji', 
-            fontSize: 42,
-            fill: 0xffd700, 
-            stroke: { color: 0x000000, width: 5 }
+            fontSize: 40,
+            fill: 0xc4b584, 
         }
     });
-    
-    speedBtn.anchor.set(0.5);
-    speedBtn.x = ui.btnSpin.x + 180;
-    speedBtn.y = ui.btnSpin.y;
-    speedBtn.eventMode = 'static';
-    speedBtn.cursor = 'pointer';
-    ui.container.addChild(speedBtn);
+    speedText.anchor.set(0.5);
+    speedText.y = 0; 
+    speedContainer.addChild(speedText);
 
-    speedBtn.on('pointerdown', () => {
+    speedContainer.on('pointerdown', () => {
         (window as any).currentSpeed++;
         if ((window as any).currentSpeed > 3) (window as any).currentSpeed = 1;
 
-        if ((window as any).currentSpeed === 1) {
-            speedBtn.text = '🐢 x1'; 
-        } else if ((window as any).currentSpeed === 2) {
-            speedBtn.text = '🐇 x2'; 
-        } else {
-            speedBtn.text = '⚡ x3'; 
-        }
+        speedText.text = `x${(window as any).currentSpeed}`;
         
-        speedBtn.scale.set(0.8);
-        setTimeout(() => speedBtn.scale.set(1), 100);
+        speedContainer.scale.set(0.9);
+        setTimeout(() => speedContainer.scale.set(1), 100);
     });
 
     // ==========================================
     // КЛІК ПО КНОПЦІ SPIN
     // ==========================================
     ui.btnSpin.on('pointerdown', () => {
-        // Запуск музики при першому кліку на Spin (обхід блокування браузера)
         if (!musicStarted && !isMutedLocally) {
             musicStarted = true;
             bgMusic.play().catch(e => console.log("Помилка звуку:", e));
@@ -434,6 +425,78 @@ async function init() {
 
         animateSpinButton(ui.btnSpin, 290);
         startPlay(); 
+    });
+
+    // ==========================================
+    // 🔄 КНОПКА АВТОСПІНУ (ЛОГІКА + ІНТЕГРАЦІЯ)
+    // ==========================================
+    (window as any).isAutoSpinActive = false; 
+
+    const autoContainer = new Container();
+    autoContainer.x = -240; 
+    autoContainer.y = 670;  
+    autoContainer.eventMode = 'static';
+    autoContainer.cursor = 'pointer';
+    ui.container.addChild(autoContainer);
+
+    const autoBg = Sprite.from('/assets/avtospin.png'); 
+    autoBg.anchor.set(0.5);
+    autoBg.height = 220; 
+    autoBg.scale.x = autoBg.scale.y; 
+    autoContainer.addChild(autoBg);
+
+    const autoText = new Text({
+        text: 'OFF', 
+        style: {
+            fontFamily: 'Skranji', 
+            fontSize: 30, 
+            fill: 0xa69568, 
+        }
+    });
+    autoText.anchor.set(0.5);
+    autoText.y = 0; 
+    autoContainer.addChild(autoText);
+
+    // Функція запуску наступного спіну в режимі авто (ЧЕКАЄ ДОКІВ ЦИФРИ ЗУПИНЯТЬСЯ)
+    // Проста і надійна функція запуску наступного автоспіну з паузою
+    const checkAndTriggerAutoSpin = (delay: number = 0) => {
+        if (!(window as any).isAutoSpinActive) return;
+
+        // Перевіряємо гроші
+        if (ui.balance < ui.currentBet) {
+            (window as any).isAutoSpinActive = false;
+            autoText.text = 'OFF';
+            autoText.style.fill = 0xa69568;
+            return;
+        }
+
+        setTimeout(() => {
+            if ((window as any).isAutoSpinActive && !running) {
+                startPlay();
+            }
+        }, delay);
+    };
+
+    (window as any).triggerAutoSpin = checkAndTriggerAutoSpin;
+
+    autoContainer.on('pointerdown', () => {
+        const isActive = (window as any).isAutoSpinActive;
+        (window as any).isAutoSpinActive = !isActive;
+
+        if ((window as any).isAutoSpinActive) {
+            autoText.text = 'ON';
+            autoText.style.fill = 0xebdcb8; 
+            
+            if (!running) {
+                startPlay();
+            }
+        } else {
+            autoText.text = 'OFF';
+            autoText.style.fill = 0xa69568; 
+        }
+
+        autoContainer.scale.set(0.9);
+        setTimeout(() => autoContainer.scale.set(1), 100);
     });
 }
 

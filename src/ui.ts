@@ -353,7 +353,7 @@ export class SlotUI {
         return true; 
     }
 
-    public addWin(amount: number) {
+    public addWin(amount: number, onWinFinish?: () => void) {
         this.balance += amount;
         this.displayWin = 0; 
         
@@ -363,7 +363,7 @@ export class SlotUI {
         let duration = 2000; // Nice Win
         
         if (winMultiplier >= 50) {
-            duration = 6500; // Mega Win (робимо довшим, щоб створити максимум інтриги на кожному етапі)
+            duration = 6500; // Mega Win
         } else if (winMultiplier >= 20) {
             duration = 4500; // Big Win
         }
@@ -376,16 +376,22 @@ export class SlotUI {
             this.balanceText.text = `${this.balance.toFixed(2)} $`;
         });
 
-        // 🔥 Використовуємо функцію сповільнення наприкінці (ease-out куб), 
-        // щоб цифри створювали інтригу і плавно підходили до фіналу кожної стадії!
         const customEase = (t: number) => 1 - Math.pow(1 - t, 3);
 
         tweenTo(this, 'displayWin', amount, duration, customEase, () => {
             this.winText.text = `${this.displayWin.toFixed(2)} $`;
             this.updateWinThemeByProgress(this.displayWin); 
         }, () => {
+            // 🔥 ЦЕЙ БЛОК СПРАЦЬОВУЄ КОЛИ ЦИФРИ СТОПИЛИСЬ НА КІНЦЕВІЙ СУМІ
             this.winText.text = `${amount.toFixed(2)} $`;
             this.updateWinThemeByProgress(amount); 
+
+            // Якщо передана функція завершення — викликаємо її з невеликою паузою (наприклад, 1.5 секунди, щоб гравець помилувався сумою)
+            if (onWinFinish) {
+                setTimeout(() => {
+                    onWinFinish();
+                }, 1500); // 👈 1.5 секунди паузи після того, як цифри добігли
+            }
         });
     }
 
