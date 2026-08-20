@@ -68,7 +68,7 @@ const BASE_SYMBOLS_WEIGHTS = [
     ...Array(12).fill('/assets/Q.png'), ...Array(10).fill('/assets/K.png'),
     ...Array(10).fill('/assets/A.png'), ...Array(8).fill('/assets/svitok.png'),
     ...Array(7).fill('/assets/sunduk.png'), ...Array(5).fill('/assets/d4.png'),
-    ...Array(4).fill('/assets/d3.png'), ...Array(3).fill('/assets/d2.png'),
+    ...Array(5).fill('/assets/d3.png'), ...Array(3).fill('/assets/d2.png'),
     ...Array(2).fill('/assets/d1.png') 
 ];
 

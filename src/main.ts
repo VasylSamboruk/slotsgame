@@ -4,6 +4,8 @@ import { calculateWins } from './winLogic';
 import { SlotUI } from './ui';
 import { tweenTo, lerp, backout, animateSpinButton, killTweensOf } from './animations';
 import { playWinAnimation, stopWinAnimations } from './winAnimation';
+import { showBigWinOverlay } from './bigWin';
+import { animateFon } from './fonAnimation'; // ДОДАНО: Імпорт анімації фону
 
 const app = new Application();
 
@@ -28,6 +30,19 @@ async function init() {
         '/assets/pidkladka.png', '/assets/pidkladka2.png',
         '/assets/minusBTN.png', '/assets/plusBTN.png', '/assets/spinBTN.png',
         '/assets/infoBtn.png', '/assets/volumeAdd.png', '/assets/volumeMin.png',
+
+        // --- ДОДАНО: КАДРИ АНІМАЦІЇ ФОНУ (РАМКИ) ---
+
+        '/assets/animation/fon2.png',
+        '/assets/animation/fon3.png',
+        '/assets/animation/fon3.png',
+        '/assets/animation/fon4.png',
+        '/assets/animation/fon5.png',
+        '/assets/animation/fon6.png',
+        '/assets/animation/fon7.png',
+        '/assets/animation/fon8.png',
+        '/assets/animation/fon9.png',
+    
 
         // --- КАДРИ АНІМАЦІЇ СКРИНІ ---
         '/assets/animation/sunduk1.png',
@@ -79,6 +94,11 @@ async function init() {
         '/assets/animation/bonus4.png',
         '/assets/animation/bonus5.png',
 
+        // --- БАНЕРИ ВИГРАШІВ ---
+        '/assets/bigWin.png',
+        '/assets/niceWin.png',
+        '/assets/megaWin.png',
+        
         
         ...SYMBOL_TEXTURES
     ]);
@@ -99,6 +119,7 @@ async function init() {
 
     const bg = Sprite.from('/assets/bg.png');
     bg.anchor.set(0.5);
+    
     mainContainer.addChild(bg);
 
     const reelsContainer = new Container();
@@ -155,6 +176,9 @@ async function init() {
     const fon = Sprite.from('/assets/fon.png');
     fon.anchor.set(0.5);
     mainContainer.addChild(fon);
+
+    // ДОДАНО: ЗАПУСКАЄМО АНІМАЦІЮ РАМКИ
+    animateFon(fon);
 
     let running = false;
     let quickStopping = false;
@@ -293,11 +317,17 @@ async function init() {
         reelsFinished++;
 
         if (reelsFinished === CONFIG.REEL_COUNT) {
-            // ТЕПЕР МИ НА 100% ВПЕВНЕНІ, ЩО ЕКРАН НЕ БРЕШЕ
             const wins = calculateWins(currentResultGrid, ui.currentBet);
+            
             if (wins.length > 0) {
+                // Вираховуємо загальну суму виграшу для передачі в банер
+                const totalWinAmount = wins.reduce((sum, win) => sum + win.amount, 0);
+
                 playWinAnimation(wins, reels, winLinesGraphic, ui, () => {
-                    running = false; 
+                    // Коли лінії показали виграш, перевіряємо, чи треба банер Big Win
+                    showBigWinOverlay(mainContainer, totalWinAmount, ui.currentBet, () => {
+                        running = false; 
+                    });
                 });
             } else {
                 running = false;

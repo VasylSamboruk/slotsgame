@@ -1,4 +1,4 @@
-import { Container, Text, TextStyle, Sprite, FillGradient } from 'pixi.js';
+import { Container, Text, TextStyle, Sprite, FillGradient, Graphics, Ticker, BlurFilter } from 'pixi.js';
 import { animateButtonPress, tweenTo, lerp, killTweensOf } from './animations';
 
 export class SlotUI {
@@ -14,15 +14,21 @@ export class SlotUI {
     public winText!: Text; 
     public btnSpin!: Sprite; 
     
-    // Нові кнопки
     public btnInfo!: Sprite;
     public btnVolume!: Sprite;
-    private isMuted: boolean = false; // Стан звуку
+    private isMuted: boolean = false; 
     
     private betIndex: number = 0;
     private availableBets: number[] = [1, 2, 5, 10, 20, 50, 100, 200, 500];
 
     public isSpinning: () => boolean = () => false;
+
+    // --- ЕЛЕМЕНТИ ДЛЯ ЕФЕКТІВ ЦИФР ---
+    private winContainer!: Container;
+    private winGlow!: Graphics;
+    private sparks: Graphics[] = [];
+    private tickCount: number = 0;
+    private currentThemeColor: number = 0xff8800; // Колір за замовчуванням
 
     constructor(initialBalance: number) {
         this.container = new Container();
@@ -55,7 +61,6 @@ export class SlotUI {
         this.btnSpin.eventMode = 'static';
         this.btnSpin.cursor = 'pointer';
 
-        // ДОДАЄМО СВІТІННЯ ДЛЯ SPIN
         const spinGlow = new Sprite(this.btnSpin.texture);
         spinGlow.anchor.set(0.5);
         spinGlow.blendMode = 'add';
@@ -76,14 +81,7 @@ export class SlotUI {
             fontWeight: '900',
             letterSpacing: 2,
             fill: [0xffefcc, 0xdca052, 0xab5f17], 
-            stroke: { color: 0x3e1d04, width: 6, join: 'round' }, 
-            dropShadow: { 
-                alpha: 1, 
-                angle: Math.PI / 2, 
-                blur: 0,            
-                color: 0x240d00,    
-                distance: 6         
-            }
+            stroke: { color: 0x3e1d04, width: 6, join: 'round' }
         });
         
         this.balanceText = new Text({ text: `${this.displayBalance.toFixed(2)} $`, style: balanceStyle });
@@ -101,7 +99,6 @@ export class SlotUI {
         btnMinus.eventMode = 'static';
         btnMinus.cursor = 'pointer';
 
-        // ДОДАЄМО СВІТІННЯ ДЛЯ МІНУСА
         const minusGlow = new Sprite(btnMinus.texture);
         minusGlow.anchor.set(0.5);
         minusGlow.blendMode = 'add';
@@ -130,14 +127,7 @@ export class SlotUI {
             fontWeight: '900',
             letterSpacing: 2,
             fill: [0xffefcc, 0xdca052, 0xab5f17], 
-            stroke: { color: 0x3e1d04, width: 7, join: 'round' }, 
-            dropShadow: { 
-                alpha: 1, 
-                angle: Math.PI / 2, 
-                blur: 0,            
-                color: 0x240d00,    
-                distance: 7         
-            }
+            stroke: { color: 0x3e1d04, width: 7, join: 'round' }
         });
         this.betText = new Text({ text: `${this.currentBet} $`, style: betStyle });
         this.betText.anchor.set(0.5);
@@ -156,14 +146,7 @@ export class SlotUI {
             fontWeight: '900',
             letterSpacing: 2,
             fill: goldGradient, 
-            stroke: { color: 0x3e1d04, width: 6, join: 'round' }, 
-            dropShadow: { 
-                alpha: 1, 
-                angle: Math.PI / 2, 
-                blur: 0,            
-                color: 0x240d00,    
-                distance: 5         
-            }
+            stroke: { color: 0x3e1d04, width: 6, join: 'round' }
         });
 
         const balanceLabel = new Text({ text: 'BALANCE', style: labelStyle });
@@ -187,7 +170,6 @@ export class SlotUI {
         btnPlus.eventMode = 'static';
         btnPlus.cursor = 'pointer';
 
-        // ДОДАЄМО СВІТІННЯ ДЛЯ ПЛЮСА
         const plusGlow = new Sprite(btnPlus.texture);
         plusGlow.anchor.set(0.5);
         plusGlow.blendMode = 'add';
@@ -210,32 +192,45 @@ export class SlotUI {
         });
         this.container.addChild(btnPlus);
 
+        // ==========================================
+        // 🔥 ВИГРАШ ТЕПЕР НАВЕРХУ (y = -740)
+        // ==========================================
+        this.winContainer = new Container();
+        this.winContainer.x = -30; // 👈 Зсув вліво (можеш підібрати точніше: -20, -40 тощо)
+        this.winContainer.y = -700; // 👈 Опускаємо нижче на плашку (міняй -740 на менше за модулем, наприклад -700 або -680)        this.winContainer.eventMode = 'none'; // ВАЖЛИВО: Ніколи не перекриває кліки!
+        this.container.addChild(this.winContainer);
+
+        // Локальне світіння за цифрами
+        this.winGlow = new Graphics();
+        this.winGlow.circle(0, 0, 250);
+        this.winGlow.fill({ color: 0xff6600, alpha: 0.5 });
+        this.winGlow.filters = [new BlurFilter(50)];
+        this.winGlow.blendMode = 'add';
+        this.winGlow.alpha = 0;
+        this.winContainer.addChild(this.winGlow);
+
+        // Цифри виграшу
         this.winText = new Text({
             text: '',
             style: new TextStyle({
                 fontFamily: 'Skranji',
-                fontSize: 85, 
+                fontSize: 85, // Оптимальний розмір для верхньої рамки
                 fontWeight: '900',
-                letterSpacing: 2,
-                fill: [0xffefcc, 0xdca052, 0xab5f17] as any, 
-                stroke: { color: 0x3e1d04, width: 10, join: 'round' }, 
-                dropShadow: { 
-                    alpha: 1, 
-                    angle: Math.PI / 2, 
-                    blur: 0,            
-                    color: 0x240d00,    
-                    distance: 8         
-                }
+                letterSpacing: 3,
+                fill: [0xfff9c4, 0xffca28, 0xff8f00] as any, 
+                stroke: { color: 0x3e1d04, width: 10, join: 'round' }
             })
         });
+        this.winText.x = +60; // 👈 Зсув вліво (можеш поставити -50 чи -60, якщо мало)
+        this.winText.y = 90;  // 👈 Опускаємо вниз на саму плашку (постав 40, 50 або 60)
         this.winText.anchor.set(0.5);
-        this.winText.x = 0;
-        this.winText.y = 550; 
         this.winText.alpha = 0;
-        this.container.addChild(this.winText);
+        this.winContainer.addChild(this.winText);
+
+        Ticker.shared.add(this.winEffectTicker.bind(this));
 
         // ==========================================
-        // КНОПКА ІНФО (Лівий верхній кут)
+        // КНОПКА ІНФО ТА ЗВУКУ
         // ==========================================
         this.btnInfo = Sprite.from('/assets/infoBtn.png');
         this.btnInfo.anchor.set(0.5);
@@ -245,26 +240,8 @@ export class SlotUI {
         this.btnInfo.y = -650; 
         this.btnInfo.eventMode = 'static';
         this.btnInfo.cursor = 'pointer';
-
-        const infoGlow = new Sprite(this.btnInfo.texture);
-        infoGlow.anchor.set(0.5);
-        infoGlow.blendMode = 'add';
-        infoGlow.alpha = 0;
-        this.btnInfo.addChild(infoGlow);
-
-        this.btnInfo.on('pointerdown', (e) => {
-            e.stopPropagation();
-            animateButtonPress(this.btnInfo, 110);
-            
-            killTweensOf(infoGlow);
-            infoGlow.alpha = 0.8;
-            tweenTo(infoGlow, 'alpha', 0, 400, lerp, null, null);
-        });
         this.container.addChild(this.btnInfo);
 
-        // ==========================================
-        // КНОПКА ЗВУКУ (З перемиканням текстур)
-        // ==========================================
         this.btnVolume = Sprite.from('/assets/volumeAdd.png');
         this.btnVolume.anchor.set(0.5);
         this.btnVolume.width = 110; 
@@ -273,29 +250,68 @@ export class SlotUI {
         this.btnVolume.y = -520; 
         this.btnVolume.eventMode = 'static';
         this.btnVolume.cursor = 'pointer';
-
-        const volumeGlow = new Sprite(this.btnVolume.texture);
-        volumeGlow.anchor.set(0.5);
-        volumeGlow.blendMode = 'add';
-        volumeGlow.alpha = 0;
-        this.btnVolume.addChild(volumeGlow);
+        this.container.addChild(this.btnVolume);
 
         this.btnVolume.on('pointerdown', (e) => {
             e.stopPropagation();
             animateButtonPress(this.btnVolume, 110);
-            
-            // Змінюємо стан звуку та саму текстуру кнопки
             this.isMuted = !this.isMuted;
             const newTexturePath = this.isMuted ? '/assets/volumeMin.png' : '/assets/volumeAdd.png';
             this.btnVolume.texture = Sprite.from(newTexturePath).texture;
-            volumeGlow.texture = this.btnVolume.texture; // Оновлюємо текстуру світіння теж
-            
-            // Запускаємо спалах світіння
-            killTweensOf(volumeGlow);
-            volumeGlow.alpha = 0.8;
-            tweenTo(volumeGlow, 'alpha', 0, 400, lerp, null, null);
         });
-        this.container.addChild(this.btnVolume);
+    }
+
+    // 🔥 ТІКЕР: ДУЖЕ М'ЯКА АНІМАЦІЯ
+    private winEffectTicker(ticker: any) {
+        if (this.winText.alpha <= 0) return;
+
+        const dt = ticker.deltaTime;
+        this.tickCount += dt * 0.05; // Сповільнив загальний час
+
+        const currentMultiplier = this.displayWin / this.currentBet;
+        if (currentMultiplier < 0.1) return; 
+        
+        // Дуже м'яка пульсація
+        const pulseIntensity = Math.min(0.08, currentMultiplier * 0.002); 
+        
+        const scale = 1 + Math.sin(this.tickCount * 2) * pulseIntensity;
+        this.winText.scale.set(scale);
+        this.winText.rotation = Math.sin(this.tickCount * 1.5) * (pulseIntensity * 0.3); 
+
+        this.winGlow.scale.set(scale * 1.1);
+        this.winGlow.alpha = 0.5 + Math.sin(this.tickCount * 2) * 0.2;
+
+        // 🎇 ГЕНЕРАЦІЯ ІСКОР ПІД КОЛІР БАНЕРА
+        if (Math.random() < 0.2 + pulseIntensity) { 
+            const spark = new Graphics();
+            // Іскри або білі, або під колір поточного банера
+            const color = Math.random() > 0.5 ? 0xffffff : this.currentThemeColor;
+            
+            spark.circle(0, 0, Math.random() * 4 + 2);
+            spark.fill({ color, alpha: 0.8 });
+            spark.blendMode = 'add';
+            
+            spark.x = (Math.random() - 0.5) * 350; 
+            spark.y = (Math.random() - 0.5) * 40 + 20; 
+            
+            (spark as any).vx = (Math.random() - 0.5) * 3;
+            (spark as any).vy = -(Math.random() * 4 + 2);
+            
+            this.winContainer.addChildAt(spark, 1); 
+            this.sparks.push(spark);
+        }
+
+        for (let i = this.sparks.length - 1; i >= 0; i--) {
+            const s = this.sparks[i];
+            s.x += (s as any).vx * dt;
+            s.y += (s as any).vy * dt;
+            s.alpha -= 0.015 * dt;
+            
+            if (s.alpha <= 0) {
+                s.destroy();
+                this.sparks.splice(i, 1);
+            }
+        }
     }
 
     private updateBetText() {
@@ -306,7 +322,9 @@ export class SlotUI {
     public deductBet(): boolean {
         if (this.balance < this.currentBet) {
             this.winText.text = 'НЕМАЄ КОШТІВ!';
-            this.winText.style.fill = 0xff0000; 
+            // Якщо немає коштів, повертаємо на старе місце вниз, щоб гравець побачив
+            this.winContainer.y = 550;
+            this.winText.style = new TextStyle({ fontFamily: 'Skranji', fontSize: 60, fill: 0xff0000 });
             this.winText.alpha = 1;
             return false; 
         }
@@ -321,8 +339,17 @@ export class SlotUI {
             this.balanceText.text = `${this.balance.toFixed(2)} $`;
         });
         
+        // Скидаємо ефекти перед новим спіном
+        this.winContainer.y = -740; // Повертаємо наверх
         this.winText.alpha = 0;
-        this.winText.style.fill = 0xffcc00; 
+        this.winGlow.alpha = 0;
+        this.displayWin = 0; 
+        this.winText.scale.set(1);
+        this.winText.rotation = 0;
+
+        this.sparks.forEach(s => s.destroy());
+        this.sparks = [];
+
         return true; 
     }
 
@@ -332,16 +359,75 @@ export class SlotUI {
         
         killTweensOf(this);
 
-        tweenTo(this, 'displayBalance', this.balance, 1000, lerp, () => {
+        const winMultiplier = amount / this.currentBet;
+        let duration = 2000; // Nice Win
+        
+        if (winMultiplier >= 50) {
+            duration = 6500; // Mega Win (робимо довшим, щоб створити максимум інтриги на кожному етапі)
+        } else if (winMultiplier >= 20) {
+            duration = 4500; // Big Win
+        }
+
+        this.winText.alpha = 1;
+
+        tweenTo(this, 'displayBalance', this.balance, duration, lerp, () => {
             this.balanceText.text = `${this.displayBalance.toFixed(2)} $`;
         }, () => {
             this.balanceText.text = `${this.balance.toFixed(2)} $`;
         });
 
-        tweenTo(this, 'displayWin', amount, 1000, lerp, () => {
-            this.winText.text = `You win: ${this.displayWin.toFixed(2)} $`;
+        // 🔥 Використовуємо функцію сповільнення наприкінці (ease-out куб), 
+        // щоб цифри створювали інтригу і плавно підходили до фіналу кожної стадії!
+        const customEase = (t: number) => 1 - Math.pow(1 - t, 3);
+
+        tweenTo(this, 'displayWin', amount, duration, customEase, () => {
+            this.winText.text = `${this.displayWin.toFixed(2)} $`;
+            this.updateWinThemeByProgress(this.displayWin); 
         }, () => {
-            this.winText.text = `You win: ${amount.toFixed(2)} $`;
+            this.winText.text = `${amount.toFixed(2)} $`;
+            this.updateWinThemeByProgress(amount); 
+        });
+    }
+
+    // 🎨 Динамічна зміна кольору і світіння цифр залежно від поточної суми
+    private updateWinThemeByProgress(currentAmount: number) {
+        const currentMultiplier = currentAmount / this.currentBet;
+        
+        // 🌟 Чистий нейтральний золото-кремовий колір для станку та малих виграшів (< x10)
+        let themeColor = 0xffefcc; 
+        let strokeColor = 0x3e1d04;
+        let dropColor = 0xab5f17;
+
+        if (currentMultiplier >= 50) {
+            themeColor = 0xb800ff; // Фіолетовий (Mega Win)
+            strokeColor = 0x4a0066;
+            dropColor = 0x8800cc;
+        } else if (currentMultiplier >= 20) {
+            themeColor = 0xff8800; // Оранжевий (Big Win)
+            strokeColor = 0x663300;
+            dropColor = 0xcc6600;
+        } else if (currentMultiplier >= 10) {
+            themeColor = 0x00ff33; // Зелений (Nice Win)
+            strokeColor = 0x004411;
+            dropColor = 0x00aa22;
+        }
+
+        this.currentThemeColor = themeColor;
+
+        // Оновлюємо колір світіння
+        this.winGlow.clear();
+        this.winGlow.circle(0, 0, 250);
+        this.winGlow.fill({ color: themeColor, alpha: 0.6 });
+
+        // Оновлюємо стиль тексту
+        this.winText.style = new TextStyle({
+            fontFamily: 'Skranji',
+            fontSize: 85,
+            fontWeight: '900',
+            letterSpacing: 4,
+            fill: [0xffffff, 0xffefcc, themeColor] as any, 
+            stroke: { color: strokeColor, width: 12, join: 'round' },
+            dropShadow: { alpha: 1, angle: Math.PI / 2, blur: 15, color: dropColor, distance: 0 }
         });
     }
 }
