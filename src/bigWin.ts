@@ -167,27 +167,47 @@ export function showBigWinOverlay(
         }
 
         let isClosing = false;
+        
+        // Функція закриття банера (спільна для кліку і таймера)
+        const closeBanner = () => {
+            if (isClosing) return;
+            isClosing = true;
+            window.removeEventListener('pointerdown', closeBanner);
+
+            timeouts.forEach(clearTimeout);
+            isActive = false;
+            Ticker.shared.remove(effectsTicker);
+
+            // ❌ ПОЛІТ ВГОРУ ПРИБРАНО!
+            // tweenTo(winContainer, 'y', -1000, 500, backout(1.2), null, null);
+
+            // Залишаємо тільки плавне зменшення на місці перед ВАУ-ефектом
+            tweenTo(winContainer.scale, 'x', 0, 400, lerp, null, null);
+            tweenTo(winContainer.scale, 'y', 0, 400, lerp, null, null);
+            
+            tweenTo(masterOverlay, 'alpha', 0, 500, lerp, null, () => {
+                masterOverlay.destroy({ children: true }); 
+                onComplete(); 
+            });
+        };
+
+        // Залишаємо можливість закрити по кліку (активується через 1с, щоб не скіпнули випадково)
         setTimeout(() => {
-            const closeBanner = () => {
-                if (isClosing) return;
-                isClosing = true;
-                window.removeEventListener('pointerdown', closeBanner);
-
-                timeouts.forEach(clearTimeout);
-                isActive = false;
-                Ticker.shared.remove(effectsTicker);
-
-                tweenTo(winContainer, 'y', -1000, 500, backout(1.2), null, null);
-                tweenTo(winContainer.scale, 'x', 0, 400, lerp, null, null);
-                tweenTo(winContainer.scale, 'y', 0, 400, lerp, null, null);
-                
-                tweenTo(masterOverlay, 'alpha', 0, 500, lerp, null, () => {
-                    masterOverlay.destroy({ children: true }); 
-                    onComplete(); 
-                });
-            };
-
             window.addEventListener('pointerdown', closeBanner);
         }, 1000); 
+
+        // ==========================================
+        // 🔥 АВТОМАТИЧНЕ ЗАКРИТТЯ СИНХРОННО З МУЗИКОЮ
+        // (Можеш видалити цей блок, якщо захочеш повернути лише закриття по кліку)
+        // ==========================================
+        let autoCloseTime = 2500; // Час для Nice Win (якщо немає апгрейдів)
+        if (winMultiplier >= 50) autoCloseTime = 6500; // Mega Win
+        else if (winMultiplier >= 20) autoCloseTime = 4500; // Big Win
+
+        timeouts.push(setTimeout(() => {
+            closeBanner();
+        }, autoCloseTime));
+        // ==========================================
+
     });
 }

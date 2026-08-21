@@ -68,7 +68,7 @@ const BASE_SYMBOLS_WEIGHTS = [
     ...Array(12).fill('/assets/Q.png'), ...Array(10).fill('/assets/K.png'),
     ...Array(10).fill('/assets/A.png'), ...Array(8).fill('/assets/svitok.png'),
     ...Array(7).fill('/assets/sunduk.png'), ...Array(5).fill('/assets/d4.png'),
-    ...Array(45).fill('/assets/d3.png'), ...Array(43).fill('/assets/d2.png'),
+    ...Array(5).fill('/assets/d3.png'), ...Array(3).fill('/assets/d2.png'),
     ...Array(2).fill('/assets/d1.png') 
 ];
 
@@ -104,11 +104,11 @@ export function generateSpinResult(): string[][] {
         grid.push(reelResult);
     }
 
-  // 🔥 ГАРАНТОВАНИЙ БОНУС ПРИ КОЖНОМУ СПІНІ (ДЛЯ ТЕСТІВ) 🔥
-    // Примусово ставимо бонус по центру на 1, 3 і 5 барабанах:
- // grid[0][1] = '/assets/bonus.png'; 
-   // grid[2][1] = '/assets/bonus.png'; 
-   // grid[4][1] = '/assets/bonus.png';
+   // 🔥 ГАРАНТОВАНИЙ БОНУС ПРИ КОЖНОМУ СПІНІ (ДЛЯ ТЕСТІВ) 🔥
+  //    Примусово ставимо бонус по центру на 1, 3 і 5 барабанах:
+   grid[0][0] = '/assets/bonus.png'; 
+   grid[2][1] = '/assets/bonus.png'; 
+   grid[4][1] = '/assets/bonus.png';
 
     return grid;
 }

@@ -10,28 +10,97 @@ import { animateFon } from './fonAnimation';
 const app = new Application();
 
 // ==========================================
-// 🎬 ФУНКЦІЯ ДЛЯ ВІДТВОРЕННЯ БОНУСНОГО ВІДЕО
+// 🎬 ФУНКЦІЯ ДЛЯ ВІДТВОРЕННЯ БОНУСНОГО ВІДЕО (ЕЛІПС БЕЗ ЛІНІЙ ЗВЕРХУ ТА ЗНИЗУ)
 // ==========================================
 function playBonusVideo(onComplete: () => void) {
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.zIndex = '99999';
+    overlay.style.overflow = 'hidden';
+    overlay.style.pointerEvents = 'none';
+
+    // 📦 КОНТЕЙНЕР ДЛЯ ВІДЕО
+    const videoWrapper = document.createElement('div');
+    videoWrapper.style.position = 'absolute';
+    videoWrapper.style.top = '50%';
+    videoWrapper.style.left = '50%';
+    videoWrapper.style.transform = 'translate(-50%, -50%)';
+    videoWrapper.style.width = '65vw';   
+    videoWrapper.style.maxHeight = '75vh'; 
+    videoWrapper.style.aspectRatio = '1 / 1'; 
+    videoWrapper.style.overflow = 'hidden';
+
     const video = document.createElement('video');
     video.src = '/assets/bonusvid.mp4'; 
     video.playsInline = true;
     video.autoplay = true;
     video.muted = false; 
-
-    video.style.position = 'fixed';
-    video.style.top = '0';
-    video.style.left = '0';
-    video.style.width = '100vw';
-    video.style.height = '100vh';
-    video.style.objectFit = 'cover';
-    video.style.zIndex = '99999';
-    video.style.backgroundColor = '#000'; 
+    video.style.width = '100%';
+    video.style.height = '100%';
+    video.style.objectFit = 'cover'; 
     
-    document.body.appendChild(video);
+    // 🔥 ЕЛІПТИЧНА МАСКА: розтягуємо її так, щоб верх і низ плавно ташилися (розмивалися) раніше
+    (video.style as any).webkitMaskImage = 'radial-gradient(ellipse 55% 55% at 50% 50%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 80%)';
+    video.style.maskImage = 'radial-gradient(ellipse 55% 55% at 50% 50%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 80%)';
 
+    videoWrapper.appendChild(video);
+    overlay.appendChild(videoWrapper);
+
+    // ✨ КОНТЕЙНЕР ДЛЯ ІСКОР (Летять поверх відео і слота)
+    const effectsContainer = document.createElement('div');
+    effectsContainer.style.position = 'absolute';
+    effectsContainer.style.top = '0';
+    effectsContainer.style.left = '0';
+    effectsContainer.style.width = '100%';
+    effectsContainer.style.height = '100%';
+    effectsContainer.style.pointerEvents = 'none';
+    overlay.appendChild(effectsContainer);
+
+    document.body.appendChild(overlay);
+
+    // Генератор магічних іскор кожні 150 мілісекунд
+    const sparkInterval = setInterval(() => {
+        const spark = document.createElement('div');
+        spark.style.position = 'absolute';
+        
+        const size = Math.random() * 5 + 3; // Розмір 3-8px
+        spark.style.width = `${size}px`;
+        spark.style.height = `${size}px`;
+        
+        const isGold = Math.random() > 0.5;
+        spark.style.background = isGold ? '#ffcc00' : '#ffffff';
+        spark.style.borderRadius = '50%';
+        spark.style.boxShadow = `0 0 10px ${spark.style.background}, 0 0 20px ${spark.style.background}`;
+        
+        spark.style.left = `${Math.random() * 100}vw`; // Спавн внизу
+        spark.style.top = '100vh';
+        
+        const duration = Math.random() * 2 + 1; // Тривалість польоту
+        spark.style.transition = `top ${duration}s ease-out, left ${duration}s linear, opacity ${duration}s ease-in-out`;
+        
+        effectsContainer.appendChild(spark);
+        
+        // Політ вгору
+        setTimeout(() => {
+            spark.style.top = `${Math.random() * 40}vh`; // Летять вище середини
+            const drift = (Math.random() - 0.5) * 200; // Відхилення в сторони
+            spark.style.left = `calc(${spark.style.left} + ${drift}px)`;
+            spark.style.opacity = '0'; 
+        }, 50);
+
+        setTimeout(() => {
+            if (effectsContainer.contains(spark)) spark.remove();
+        }, duration * 1000);
+    }, 150);
+
+    // Щойно відео дограло до кінця
     video.onended = () => {
-        video.remove(); 
+        clearInterval(sparkInterval);
+        overlay.remove(); 
         onComplete();   
     };
 
@@ -173,11 +242,11 @@ async function init() {
     // ==========================================
     const bgMusic = new Audio('/assets/music/fonmusic.mp3');
     bgMusic.loop = true;
-    bgMusic.volume = 0.4; 
+    bgMusic.volume = 0.1; // Трохи тихіше, як ми й робили
 
     const spinSound = new Audio('/assets/music/spin.webm');
     spinSound.loop = true;
-    spinSound.volume = 0.5;
+    spinSound.volume = 0.3;
 
     const stopSound = new Audio('/assets/music/stop.webm');
     stopSound.volume = 0.7;
@@ -186,10 +255,13 @@ async function init() {
     countSound.loop = true;
     countSound.volume = 0.6;
     
-    // 🔥 ЗВУК ДЛЯ БАНЕРІВ ВИГРАШУ (Nice, Big, Mega)
     const bannerSound = new Audio('/assets/music/floraphonic.mp3');
     bannerSound.volume = 0.7;
     bannerSound.playbackRate = 1.15;
+    
+    // 🔥 ДОДАЄМО ЗВУК БОНУСКИ
+    const bonusWinSound = new Audio('/assets/music/bonus_win.webm');
+    bonusWinSound.volume = 0.8;
     
     let isMutedLocally = false;
     let musicStarted = false;
@@ -346,6 +418,13 @@ async function init() {
 
             const finishSpinSequence = () => {
                 if (isBonusTriggered) {
+                    // 🔊 Граємо звук випадання бонуски
+                    if (!isMutedLocally) {
+                        bonusWinSound.currentTime = 0;
+                        bonusWinSound.play().catch(() => {});
+                    }
+
+                    // Чекаємо 2.5 секунди (поки грає звук), і тільки потім пускаємо відео
                     setTimeout(() => {
                         playBonusVideo(() => {
                             running = false;
@@ -354,7 +433,7 @@ async function init() {
                                 (window as any).triggerAutoSpin(1000); 
                             }
                         });
-                    }, 1500); 
+                    }, 2500); // 👈 Таймер збільшено до 2.5 секунд
                 } else {
                     running = false; 
                     if ((window as any).isAutoSpinActive) {
@@ -371,7 +450,6 @@ async function init() {
                 if (winMultiplier >= 50) countDuration = 6500; 
                 else if (winMultiplier >= 20) countDuration = 4500; 
 
-                // 🔊 Звук лічильника 
                 if (!isMutedLocally) {
                     countSound.currentTime = 0;
                     countSound.play().catch(() => {});
@@ -381,10 +459,8 @@ async function init() {
                     countSound.pause();
                 }, countDuration);
                 
-                // 🔊 Звук БАНЕРА (грає під кінець, коли з'являється фінальна табличка)
                 let tBanner: any;
                 if (winMultiplier >= 10 && !isMutedLocally) {
-                    // Запускаємо звук за півсекунди (500мс) до повної зупинки лічильника
                     const bannerDelay = Math.max(0, countDuration - 500);
                     tBanner = setTimeout(() => {
                         bannerSound.currentTime = 0;
@@ -394,16 +470,11 @@ async function init() {
 
                 playWinAnimation(wins, reels, winLinesGraphic, ui, () => {
                     showBigWinOverlay(mainContainer, totalWinAmount, ui.currentBet, () => {
-                        // Очищаємо всі таймери і вимикаємо звуки при закритті
                         clearTimeout(tCount);
                         if (tBanner) clearTimeout(tBanner);
                         countSound.pause();
                         bannerSound.pause(); 
 
-                        // ==========================================
-                        // 🔥 ЕФЕКТ "ВАУ" (ЗБІЛЬШЕННЯ БАНЕРА ТА ЗНИКНЕННЯ)
-                        // Легко видалити цей блок if (winMultiplier >= 10) { ... }, якщо буде не потрібно!
-                        // ==========================================
                         if (winMultiplier >= 10) {
                             let bannerTex = '/assets/niceWin.png';
                             if (winMultiplier >= 50) bannerTex = '/assets/megaWin.png';
@@ -417,18 +488,15 @@ async function init() {
                             wowSprite.zIndex = 9999;
                             mainContainer.addChild(wowSprite);
 
-                            // Різко збільшуємо до x2.5 і розчиняємо альфу
                             tweenTo(wowSprite.scale, 'x', 2.5, 600, lerp, null, null);
                             tweenTo(wowSprite.scale, 'y', 2.5, 600, lerp, null, null);
                             tweenTo(wowSprite, 'alpha', 0, 600, lerp, null, () => {
-                                wowSprite.destroy(); // Видаляємо після анімації
+                                wowSprite.destroy(); 
                                 finishSpinSequence();
                             });
                         } else {
-                            // Якщо це звичайний виграш — просто йдемо далі
                             finishSpinSequence(); 
                         }
-                        // ==========================================
                     });
                 });
 
@@ -466,7 +534,10 @@ async function init() {
         spinSound.muted = isMutedLocally;
         stopSound.muted = isMutedLocally;
         countSound.muted = isMutedLocally; 
-        bannerSound.muted = isMutedLocally; // 👈 Банер теж вимикається кнопкою
+        bannerSound.muted = isMutedLocally; 
+        
+        // 🔥 Додаємо вимкнення звуку бонуски
+        bonusWinSound.muted = isMutedLocally;
         
         if (isMutedLocally) {
             ui.btnVolume.texture = Assets.get('/assets/volumeMin.png'); 
