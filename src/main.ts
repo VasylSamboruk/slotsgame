@@ -186,6 +186,11 @@ async function init() {
     countSound.loop = true;
     countSound.volume = 0.6;
     
+    // 🔥 ЗВУК ДЛЯ БАНЕРІВ ВИГРАШУ (Nice, Big, Mega)
+    const bannerSound = new Audio('/assets/music/floraphonic.mp3');
+    bannerSound.volume = 0.7;
+    bannerSound.playbackRate = 1.15;
+    
     let isMutedLocally = false;
     let musicStarted = false;
 
@@ -286,7 +291,6 @@ async function init() {
 
             const time = baseTime + (i * delayPerReel);
 
-            // 🔥 СИНХРОНІЗАЦІЯ ЗВУКУ УДАРУ 🔥
             let hitOffset = 0;
             if ((window as any).currentSpeed === 1) hitOffset = 450; 
             else if ((window as any).currentSpeed === 2) hitOffset = 150; 
@@ -363,29 +367,71 @@ async function init() {
                 const totalWinAmount = wins.reduce((sum, win) => sum + win.amount, 0);
                 const winMultiplier = totalWinAmount / ui.currentBet; 
                 
-                // ⏱️ Визначаємо точний час накрутки цифр (синхронізовано з ui.ts)
-                let countDuration = 2000; // Стандартна накрутка для малих виграшів
-                if (winMultiplier >= 50) countDuration = 6500; // Mega Win
-                else if (winMultiplier >= 20) countDuration = 4500; // Big Win
+                let countDuration = 2000; 
+                if (winMultiplier >= 50) countDuration = 6500; 
+                else if (winMultiplier >= 20) countDuration = 4500; 
 
-                // 🔊 Вмикаємо звук лічильника ОДРАЗУ для будь-якого виграшу
+                // 🔊 Звук лічильника 
                 if (!isMutedLocally) {
                     countSound.currentTime = 0;
                     countSound.play().catch(() => {});
                 }
 
-                // 🛑 Автоматично вимикаємо звук рівно тоді, коли лічильник добіжить
-                setTimeout(() => {
+                const tCount = setTimeout(() => {
                     countSound.pause();
                 }, countDuration);
+                
+                // 🔊 Звук БАНЕРА (грає під кінець, коли з'являється фінальна табличка)
+                let tBanner: any;
+                if (winMultiplier >= 10 && !isMutedLocally) {
+                    // Запускаємо звук за півсекунди (500мс) до повної зупинки лічильника
+                    const bannerDelay = Math.max(0, countDuration - 500);
+                    tBanner = setTimeout(() => {
+                        bannerSound.currentTime = 0;
+                        bannerSound.play().catch(() => {});
+                    }, bannerDelay);
+                }
 
                 playWinAnimation(wins, reels, winLinesGraphic, ui, () => {
                     showBigWinOverlay(mainContainer, totalWinAmount, ui.currentBet, () => {
-                        finishSpinSequence(); 
+                        // Очищаємо всі таймери і вимикаємо звуки при закритті
+                        clearTimeout(tCount);
+                        if (tBanner) clearTimeout(tBanner);
+                        countSound.pause();
+                        bannerSound.pause(); 
+
+                        // ==========================================
+                        // 🔥 ЕФЕКТ "ВАУ" (ЗБІЛЬШЕННЯ БАНЕРА ТА ЗНИКНЕННЯ)
+                        // Легко видалити цей блок if (winMultiplier >= 10) { ... }, якщо буде не потрібно!
+                        // ==========================================
+                        if (winMultiplier >= 10) {
+                            let bannerTex = '/assets/niceWin.png';
+                            if (winMultiplier >= 50) bannerTex = '/assets/megaWin.png';
+                            else if (winMultiplier >= 20) bannerTex = '/assets/bigWin.png';
+
+                            const wowSprite = Sprite.from(bannerTex);
+                            wowSprite.anchor.set(0.5);
+                            wowSprite.x = 0; 
+                            wowSprite.y = 0;
+                            wowSprite.scale.set(1);
+                            wowSprite.zIndex = 9999;
+                            mainContainer.addChild(wowSprite);
+
+                            // Різко збільшуємо до x2.5 і розчиняємо альфу
+                            tweenTo(wowSprite.scale, 'x', 2.5, 600, lerp, null, null);
+                            tweenTo(wowSprite.scale, 'y', 2.5, 600, lerp, null, null);
+                            tweenTo(wowSprite, 'alpha', 0, 600, lerp, null, () => {
+                                wowSprite.destroy(); // Видаляємо після анімації
+                                finishSpinSequence();
+                            });
+                        } else {
+                            // Якщо це звичайний виграш — просто йдемо далі
+                            finishSpinSequence(); 
+                        }
+                        // ==========================================
                     });
                 });
 
-                // Чекаємо завершення накрутки для малих виграшів перед новим спіном
                 if (winMultiplier < 10) {
                     setTimeout(() => {
                         finishSpinSequence(); 
@@ -419,7 +465,8 @@ async function init() {
         bgMusic.muted = isMutedLocally;
         spinSound.muted = isMutedLocally;
         stopSound.muted = isMutedLocally;
-        countSound.muted = isMutedLocally; // Звук бабок також прив'язаний до кнопки
+        countSound.muted = isMutedLocally; 
+        bannerSound.muted = isMutedLocally; // 👈 Банер теж вимикається кнопкою
         
         if (isMutedLocally) {
             ui.btnVolume.texture = Assets.get('/assets/volumeMin.png'); 

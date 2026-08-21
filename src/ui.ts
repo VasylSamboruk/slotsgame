@@ -433,11 +433,11 @@ export class SlotUI {
             glowBlur = 20;
         }
 
-        // 1. Застосовуємо ГРАДІЄНТ замість одного нудного кольору
+       // 1. Застосовуємо ГРАДІЄНТ замість одного нудного кольору
         this.winText.style.fill = themeFill;
         
-        // 2. ЖОРСТКО ВИМИКАЄМО ОБВОДКУ, щоб не було чорних обрізаних країв
-        this.winText.style.strokeThickness = 0; 
+        // 2. ЖОРСТКО ВИМИКАЄМО ОБВОДКУ (Правильний формат для PixiJS v8)
+        this.winText.style.stroke = { width: 0 } as any; // або просто this.winText.style.stroke = undefined;
         
         // 3. Застосовуємо об'ємне світіння (без зміщення distance: 0)
         this.winText.style.dropShadow = {
