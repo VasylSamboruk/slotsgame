@@ -195,9 +195,12 @@ async function init() {
         }
     }
 
+    // Можеш легко підкручувати числа в цьому масиві під ідеальну картинку.
+    const reelXPositions = [-790, -414, 0, 400, 798]; 
+
     for (let i = 0; i < CONFIG.REEL_COUNT; i++) {
         const reelContainer = new Container();
-        reelContainer.x = (-CONFIG.BG_WIDTH / 2) + (REEL_WIDTH / 2) + (i * REEL_WIDTH);
+        reelContainer.x = reelXPositions[i]; // Використовуємо кастомний відступ замість формули
         reelContainer.y = START_Y;
 
         const reel = { container: reelContainer, symbols: [] as Sprite[] };

@@ -17,7 +17,7 @@ export const CONFIG = {
     GLOBAL_Y_OFFSET: -35,
     DRAGON_SIZE: 295,
     LETTER_SIZE: 220,
-    MASK_HEIGHT: 930,
+    MASK_HEIGHT: 999,
     SYMBOLS_PER_REEL: 25 
 };
 
@@ -73,11 +73,11 @@ const BASE_SYMBOLS_WEIGHTS = [
 ];
 
 const REELS = [
-    [...BASE_SYMBOLS_WEIGHTS, ...Array(5).fill('/assets/bonus.png')],
+    [...BASE_SYMBOLS_WEIGHTS, ...Array(10).fill('/assets/bonus.png')],
     [...BASE_SYMBOLS_WEIGHTS, ...Array(8).fill('/assets/wild.png')],
-    [...BASE_SYMBOLS_WEIGHTS, ...Array(8).fill('/assets/wild.png'), ...Array(5).fill('/assets/bonus.png')],
+    [...BASE_SYMBOLS_WEIGHTS, ...Array(8).fill('/assets/wild.png'), ...Array(10).fill('/assets/bonus.png')],
     [...BASE_SYMBOLS_WEIGHTS, ...Array(8).fill('/assets/wild.png')],
-    [...BASE_SYMBOLS_WEIGHTS, ...Array(5).fill('/assets/bonus.png')]
+    [...BASE_SYMBOLS_WEIGHTS, ...Array(10).fill('/assets/bonus.png')]
 ];
 
 export function generateSpinResult(): string[][] {
@@ -106,9 +106,9 @@ export function generateSpinResult(): string[][] {
 
    // 🔥 ГАРАНТОВАНИЙ БОНУС ПРИ КОЖНОМУ СПІНІ (ДЛЯ ТЕСТІВ) 🔥
   //    Примусово ставимо бонус по центру на 1, 3 і 5 барабанах:
-   grid[0][0] = '/assets/bonus.png'; 
-   grid[2][1] = '/assets/bonus.png'; 
-   grid[4][1] = '/assets/bonus.png';
+   // grid[0][0] = '/assets/bonus.png'; 
+  //  grid[2][1] = '/assets/bonus.png'; 
+   // grid[4][1] = '/assets/bonus.png';
 
     return grid;
 }
