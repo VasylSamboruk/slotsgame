@@ -179,7 +179,7 @@ async function init() {
     mainContainer.addChild(mask);
     reelsContainer.mask = mask;
 
-    const REEL_WIDTH = CONFIG.BG_WIDTH / CONFIG.REEL_COUNT; 
+
     const START_Y = - ((CONFIG.SYMBOLS_PER_REEL - 3) * CONFIG.ROW_SPACING);
 
     const reels: { container: Container, symbols: Sprite[] }[] = [];
