@@ -212,17 +212,28 @@ export class SlotUI {
         // Цифри виграшу
         this.winText = new Text({
             text: '',
-            style: new TextStyle({
+            style: { // 👈 У нових версіях PixiJS можна писати просто об'єкт style, без new TextStyle
                 fontFamily: 'Skranji',
-                fontSize: 85, // Оптимальний розмір для верхньої рамки
+                fontSize: 85, 
                 fontWeight: '900',
                 letterSpacing: 3,
-                fill: [0xfff9c4, 0xffca28, 0xff8f00] as any, 
-                stroke: { color: 0x3e1d04, width: 10, join: 'round' }
-            })
+                fill: [0xfff9c4, 0xffca28, 0xff8f00] as any, // 👈 Зберігаємо твій крутий золотий градієнт!
+                
+                // 🔥 ВЕЛИКИЙ PADDING, щоб тінь не впиралася в краї і не обрізалася:
+                padding: 80, 
+                
+                // 🔥 РОБИМО СВІТІННЯ (glow) замість обводки:
+                dropShadow: {
+                    alpha: 1,
+                    angle: 0,
+                    blur: 15,       // М'якість світіння
+                    color: 0xffaa00, // Золотисте світіння
+                    distance: 0      // 0 означає, що світить рівномірно на всі боки
+                }
+            }
         });
-        this.winText.x = +60; // 👈 Зсув вліво (можеш поставити -50 чи -60, якщо мало)
-        this.winText.y = 90;  // 👈 Опускаємо вниз на саму плашку (постав 40, 50 або 60)
+        this.winText.x = 60; 
+        this.winText.y = 90;  
         this.winText.anchor.set(0.5);
         this.winText.alpha = 0;
         this.winContainer.addChild(this.winText);
@@ -396,44 +407,45 @@ export class SlotUI {
     }
 
     // 🎨 Динамічна зміна кольору і світіння цифр залежно від поточної суми
-    private updateWinThemeByProgress(currentAmount: number) {
-        const currentMultiplier = currentAmount / this.currentBet;
+    // 🎨 Динамічна зміна кольору і світіння цифр залежно від поточної суми
+    public updateWinThemeByProgress(currentWin: number) {
+        const multiplier = currentWin / this.currentBet;
         
-        // 🌟 Базові кольори для простих/малих виграшів (< x10) — м'яке золото і темна СІРА обводка
-        let themeColor = 0xffefcc; 
-        let strokeColor = 0x222222; // Темно-сірий контур для простого виграшу
-        let dropColor = 0x111111;
+        // Базовий стан (малий виграш): зберігаємо твій красивий золотий градієнт!
+        let themeFill: any = [0xfff9c4, 0xffca28, 0xff8f00]; 
+        let glowColor = 0xffaa00;  // Золотисте світіння
+        let glowBlur = 15;
 
-        if (currentMultiplier >= 50) {
-            themeColor = 0xb800ff; // Фіолетовий (Mega Win)
-            strokeColor = 0x4a0066;
-            dropColor = 0x8800cc;
-        } else if (currentMultiplier >= 20) {
-            themeColor = 0xff8800; // Оранжевий (Big Win)
-            strokeColor = 0x663300;
-            dropColor = 0xcc6600;
-        } else if (currentMultiplier >= 10) {
-            themeColor = 0x00ff33; // Зелений (Nice Win)
-            strokeColor = 0x004411;
-            dropColor = 0x00aa22;
+        if (multiplier >= 50) {
+            // Mega Win: Епічний червоно-вогняний градієнт
+            themeFill = [0xffcccc, 0xff4444, 0xaa0000]; 
+            glowColor = 0xff0000;  // Червоне світіння
+            glowBlur = 35; // Дуже широке світіння
+        } else if (multiplier >= 20) {
+            // Big Win: Гарячий помаранчевий градієнт
+            themeFill = [0xffffee, 0xffaa00, 0xff4500]; 
+            glowColor = 0xff4500;  // Помаранчеве світіння
+            glowBlur = 25;
+        } else if (multiplier >= 10) {
+            // Nice Win: Яскравий світло-золотий градієнт
+            themeFill = [0xffffff, 0xffd700, 0xffaa00]; 
+            glowColor = 0xffd700;  // Яскраво-золоте світіння
+            glowBlur = 20;
         }
 
-        this.currentThemeColor = themeColor;
-
-        // Оновлюємо колір світіння
-        this.winGlow.clear();
-        this.winGlow.circle(0, 0, 250);
-        this.winGlow.fill({ color: themeColor, alpha: currentMultiplier >= 10 ? 0.6 : 0.2 }); // При малих виграшах світіння ледь помітне
-
-        // Оновлюємо стиль тексту з правильним контуром
-        this.winText.style = new TextStyle({
-            fontFamily: 'Skranji',
-            fontSize: 85,
-            fontWeight: '900',
-            letterSpacing: 4,
-            fill: [0xffffff, 0xffefcc, themeColor] as any, 
-            stroke: { color: strokeColor, width: 12, join: 'round' },
-            dropShadow: { alpha: 1, angle: Math.PI / 2, blur: 15, color: dropColor, distance: 0 }
-        });
+        // 1. Застосовуємо ГРАДІЄНТ замість одного нудного кольору
+        this.winText.style.fill = themeFill;
+        
+        // 2. ЖОРСТКО ВИМИКАЄМО ОБВОДКУ, щоб не було чорних обрізаних країв
+        this.winText.style.strokeThickness = 0; 
+        
+        // 3. Застосовуємо об'ємне світіння (без зміщення distance: 0)
+        this.winText.style.dropShadow = {
+            alpha: 1,
+            angle: 0,
+            blur: glowBlur,
+            color: glowColor,
+            distance: 0
+        };
     }
 }
