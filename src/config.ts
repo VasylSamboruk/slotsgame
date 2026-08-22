@@ -73,11 +73,11 @@ const BASE_SYMBOLS_WEIGHTS = [
 ];
 
 const REELS = [
-    [...BASE_SYMBOLS_WEIGHTS, ...Array(10).fill('/assets/bonus.png')],
+    [...BASE_SYMBOLS_WEIGHTS, ...Array(5).fill('/assets/bonus.png')],
     [...BASE_SYMBOLS_WEIGHTS, ...Array(8).fill('/assets/wild.png')],
-    [...BASE_SYMBOLS_WEIGHTS, ...Array(8).fill('/assets/wild.png'), ...Array(10).fill('/assets/bonus.png')],
+    [...BASE_SYMBOLS_WEIGHTS, ...Array(8).fill('/assets/wild.png'), ...Array(5).fill('/assets/bonus.png')],
     [...BASE_SYMBOLS_WEIGHTS, ...Array(8).fill('/assets/wild.png')],
-    [...BASE_SYMBOLS_WEIGHTS, ...Array(10).fill('/assets/bonus.png')]
+    [...BASE_SYMBOLS_WEIGHTS, ...Array(5).fill('/assets/bonus.png')]
 ];
 
 export function generateSpinResult(): string[][] {
