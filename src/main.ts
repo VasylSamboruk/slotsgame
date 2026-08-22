@@ -124,8 +124,17 @@ async function init() {
     await app.init({ 
         resizeTo: window, 
         backgroundColor: 0x1a1a24,
-        resolution: Math.min(window.devicePixelRatio || 1, 2)
+        resolution: Math.min(window.devicePixelRatio || 1, 2),
+        // @ts-ignore: Ігноруємо помилку TS, бо для плавного рендеру на Retina це критично необхідно!
+        autoDensity: true                         
     });
+
+    // 🔥 Жорстко фіксуємо канвас по центру, щоб він більше нікуди не "тікав"
+    app.canvas.style.position = 'absolute';
+    app.canvas.style.top = '0';
+    app.canvas.style.left = '0';
+    app.canvas.style.width = '100vw';
+    app.canvas.style.height = '100vh';
 
     document.body.appendChild(app.canvas);
 
