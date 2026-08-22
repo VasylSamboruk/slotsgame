@@ -124,8 +124,7 @@ async function init() {
     await app.init({ 
         resizeTo: window, 
         backgroundColor: 0x1a1a24,
-        resolution: 1, // 🔥 Замінюємо window.devicePixelRatio на жорстку 1
-        autoDensity: true                         
+        resolution: Math.min(window.devicePixelRatio || 1, 2)
     });
 
     document.body.appendChild(app.canvas);
