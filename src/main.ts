@@ -1,12 +1,24 @@
-import { Application, Container, Assets, Sprite } from 'pixi.js';
+import { Application, Container, Assets, Sprite, TextureSource } from 'pixi.js';
 import { GAME_CONFIG } from './constants';
 import { Grid } from './components/Grid';
 import { UI } from './components/UI';
 import { GameLogic } from './logic/GameLogic';
 
+// Вмикаємо лінійну фільтрацію для всіх текстур (прибирає піксельні кубики на смартфонах)
+TextureSource.defaultOptions.scaleMode = 'linear';
+
 (async () => {
     const app = new Application();
-    await app.init({ resizeTo: window, backgroundColor: GAME_CONFIG.COLORS.BACKGROUND });
+    
+    // Вмикаємо підтримку Retina-екранів (2x / 3x) та згладжування
+    await app.init({ 
+        resizeTo: window, 
+        backgroundColor: GAME_CONFIG.COLORS.BACKGROUND,
+        resolution: Math.min(window.devicePixelRatio || 1, 2),
+        autoDensity: true,
+        antialias: true
+    });
+    
     document.body.appendChild(app.canvas);
 
     const imageUrls = [...GAME_CONFIG.SYMBOLS.map(sym => sym.view), 'symbols/fonn.jpg'];
@@ -157,6 +169,10 @@ import { GameLogic } from './logic/GameLogic';
         const w = window.innerWidth;
         const h = window.innerHeight;
 
+        // Динамічно підганяємо resolution при ресайзі чи повороті екрана
+        app.renderer.resolution = Math.min(window.devicePixelRatio || 1, 2);
+        app.renderer.resize(w, h);
+
         bgSprite.width = w;
         bgSprite.height = h;
 
@@ -167,17 +183,15 @@ import { GameLogic } from './logic/GameLogic';
         const availableHeight = h - uiHeight;
 
         if (isMobile) {
-            // МОБІЛКА: Сітка на всю ширину (з невеликими відступами з боків)
+            // МОБІЛКА: Сітка на всю ширину
             const scale = (w - 20) / GAME_CONFIG.LOGICAL_WIDTH;
             gameContainer.scale.set(scale);
-            // Чітке центрування по горизонталі та вертикалі у вільній зоні
             gameContainer.x = (w - GAME_CONFIG.LOGICAL_WIDTH * scale) / 2;
             gameContainer.y = Math.max(10, (availableHeight - GAME_CONFIG.LOGICAL_HEIGHT * scale) / 2);
         } else {
-            // ПК: ВЕЛИЧЕЗНЕ ПОЛЕ (займає 90% доступної висоти)
+            // ПК: Велике поле
             const scale = (availableHeight * 0.92) / GAME_CONFIG.LOGICAL_HEIGHT;
             gameContainer.scale.set(scale);
-            // Ідеальне центрування посередині екрану
             gameContainer.x = (w - GAME_CONFIG.LOGICAL_WIDTH * scale) / 2;
             gameContainer.y = (availableHeight - GAME_CONFIG.LOGICAL_HEIGHT * scale) / 2;
         }
