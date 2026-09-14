@@ -58,11 +58,9 @@ export class GameLogic {
         this.generateGrid();
         
         const fsCount = type === 1 ? 3 : 4;
-        let placed = 0;
         
-        // Вибираємо випадкові унікальні стовпчики, щоб в 1 стовпчик ніколи не упало 2 скатери!
+        // Вибираємо випадкові унікальні стовпчики, щоб в 1 стовпчик ніколи не упало 2 скатери
         const availableCols = Array.from({ length: GAME_CONFIG.COLS }, (_, i) => i);
-        // Перемішуємо стовпчики випадковим чином
         availableCols.sort(() => Math.random() - 0.5);
 
         for (let i = 0; i < fsCount && i < availableCols.length; i++) {
@@ -116,16 +114,32 @@ export class GameLogic {
         return GAME_CONFIG.SYMBOLS[0].id;
     }
 
+    private countSymbolOnGrid(symbolId: string): number {
+        let count = 0;
+        for (let col = 0; col < this.gridState.length; col++) {
+            if (!this.gridState[col]) continue;
+            for (let row = 0; row < this.gridState[col].length; row++) {
+                if (this.gridState[col][row] === symbolId) count++;
+            }
+        }
+        return count;
+    }
+
     private generateGrid() {
         this.gridState = [];
         let rainbowGenerated = false;
 
         for (let col = 0; col < GAME_CONFIG.COLS; col++) {
-            const column = [];
-            let colHasSpecial = false; // Суворий контроль: рівно 1 спецсимвол (FS або veselka) на 1 стовпчик
+            const column: string[] = [];
+            let colHasSpecial = false; // Рівно 1 спецсимвол (FS або veselka) на 1 стовпчик
 
             for (let row = 0; row < GAME_CONFIG.ROWS; row++) {
                 let sym = this.getRandomSymbolId();
+
+                // Якщо на всій сітці ВЖЕ є 1 сонце (veselka), забороняємо випадіння нових
+                if (sym === 'veselka' && rainbowGenerated) {
+                    sym = '10';
+                }
 
                 if (sym === 'FS' || sym === 'veselka') {
                     if (colHasSpecial) {
@@ -135,7 +149,10 @@ export class GameLogic {
                     }
                 }
 
-                if (sym === 'veselka') rainbowGenerated = true;
+                if (sym === 'veselka') {
+                    rainbowGenerated = true;
+                }
+                
                 column.push(sym);
             }
             this.gridState.push(column);
@@ -236,7 +253,12 @@ export class GameLogic {
                 if (remaining.length > 0) {
                     this.gridState[col][row] = remaining.shift()!;
                 } else {
-                    this.gridState[col][row] = this.getRandomSymbolId();
+                    let newSym = this.getRandomSymbolId();
+                    // Контроль при каскадному падінні: максимум 1 сонце на полі
+                    if (newSym === 'veselka' && this.countSymbolOnGrid('veselka') >= 1) {
+                        newSym = '10';
+                    }
+                    this.gridState[col][row] = newSym;
                 }
             }
         }
@@ -431,7 +453,11 @@ export class GameLogic {
                 if (remaining.length > 0) {
                     this.gridState[col][row] = remaining.shift()!;
                 } else {
-                    this.gridState[col][row] = this.getRandomSymbolId();
+                    let newSym = this.getRandomSymbolId();
+                    if (newSym === 'veselka' && this.countSymbolOnGrid('veselka') >= 1) {
+                        newSym = '10';
+                    }
+                    this.gridState[col][row] = newSym;
                 }
             }
         }

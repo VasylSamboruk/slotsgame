@@ -131,7 +131,7 @@ TextureSource.defaultOptions.scaleMode = 'linear';
                 grid.syncGoldenSquares(logic.goldenSquares);
                 
                 await grid.dropCascadedSymbols(postRainbowState);
-                continue; 
+                break; 
             } 
             break; 
         }
