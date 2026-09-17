@@ -4,13 +4,11 @@ import { Grid } from './components/Grid';
 import { UI } from './components/UI';
 import { GameLogic } from './logic/GameLogic';
 
-// Вмикаємо лінійну фільтрацію для всіх текстур (прибирає піксельні кубики на смартфонах)
 TextureSource.defaultOptions.scaleMode = 'linear';
 
 (async () => {
     const app = new Application();
     
-    // Вмикаємо підтримку Retina-екранів (2x / 3x) та згладжування
     await app.init({ 
         resizeTo: window, 
         backgroundColor: GAME_CONFIG.COLORS.BACKGROUND,
@@ -53,6 +51,8 @@ TextureSource.defaultOptions.scaleMode = 'linear';
     grid.populateInitial(logic.gridState);
 
     let isSpinning = false;
+    let pendingCascadeState: any = null; 
+    
     const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
     ui.onBetChange = (dir: 1 | -1) => {
@@ -78,13 +78,23 @@ TextureSource.defaultOptions.scaleMode = 'linear';
     const runSpinSequence = async () => {
         isSpinning = true;
         updateFullUI();
-        grid.syncGoldenSquares(logic.goldenSquares);
-        
-        await grid.animateSpin(logic.gridState);
+
+        if (pendingCascadeState) {
+            // Плавний перехід: фінальний казанок і залишки старих символів провалюються
+            // вниз за екран, і тільки там міняються на символи нового спіну - без "стрибка"
+            grid.syncGoldenSquares(logic.goldenSquares);
+            await grid.animateRainbowExitToSpin(pendingCascadeState);
+            pendingCascadeState = null;
+        } else {
+            grid.syncGoldenSquares(logic.goldenSquares);
+            // Звичайний новий спін (усі символи падають/крутяться зверху)
+            await grid.animateSpin(logic.gridState);
+        }
         
         while (true) {
             const clusters = logic.findClusters();
             
+            // Звичайні каскади працюють як завжди — символи вибухають і красиво падають!
             if (clusters.length > 0) {
                 const { winEvents, newState } = logic.processCascade(clusters);
                 grid.syncGoldenSquares(logic.goldenSquares);
@@ -101,36 +111,53 @@ TextureSource.defaultOptions.scaleMode = 'linear';
                     await delay(300);
                 }
                 
-                while (true) {
-                    const { revealedPositions } = logic.processRainbowReveal();
-                    if (revealedPositions.length === 0) break;
-                    
+                // КРОК 1: початкове розкриття всіх ще незайманих золотих квадратів
+                const { revealedPositions } = logic.processRainbowReveal();
+                if (revealedPositions.length > 0) {
                     await grid.animateRainbowReveal(revealedPositions);
-                    await delay(400); 
+                    await delay(400);
+                }
 
-                    const cloverActions = logic.applyClovers();
-                    if (cloverActions.length > 0) {
-                        await grid.animateClovers(cloverActions); 
-                        await delay(500);
-                    }
+                // КРОК 2: перший прохід конюшин по щойно розкритих монетах
+                const initialCloverActions = logic.applyClovers();
+                if (initialCloverActions.length > 0) {
+                    await grid.animateClovers(initialCloverActions);
+                    await delay(500);
+                }
 
+                // КРОК 3: СПРАВЖНІЙ ПОСЛІДОВНИЙ КАСКАД КАЗАНКІВ
+                // Казанок А збирає все поточне -> звільнені клітинки одразу заповнюються
+                // новими монетами/конюшинами (внутрішній каскад) -> конюшини знову спрацьовують ->
+                // Казанок Б збирає нові монети ТА суму Казанка А (який після цього зникає) -> і так,
+                // доки на полі не залишиться лише один фінальний казанок.
+                while (true) {
                     const potData = logic.collectPots();
-                    if (potData.events.length > 0) {
-                        await grid.animatePots(potData);
-                        await delay(800); 
-                    } else {
-                        break; 
+                    if (!potData.collectedSomething) break;
+
+                    await grid.animatePots(potData);
+                    await delay(600);
+
+                    if (potData.clearedForCascade.length > 0) {
+                        const innerReveal = logic.fillInnerCascade(potData.clearedForCascade);
+                        if (innerReveal.length > 0) {
+                            await grid.animateRainbowReveal(innerReveal);
+                            await delay(350);
+
+                            const innerCloverActions = logic.applyClovers();
+                            if (innerCloverActions.length > 0) {
+                                await grid.animateClovers(innerCloverActions);
+                                await delay(450);
+                            }
+                        }
                     }
                 }
                 
-                const { newState: postRainbowState, winAmount, clearedPositions } = logic.endRainbowPhase();
+                const { newState, winAmount } = logic.endRainbowPhase();
+                pendingCascadeState = newState;
+                
                 updateFullUI();
-                
                 await grid.showTotalPhaseWin(winAmount); 
-                await grid.hideRainbowSymbols(clearedPositions); 
-                grid.syncGoldenSquares(logic.goldenSquares);
                 
-                await grid.dropCascadedSymbols(postRainbowState);
                 break; 
             } 
             break; 
@@ -169,7 +196,6 @@ TextureSource.defaultOptions.scaleMode = 'linear';
         const w = window.innerWidth;
         const h = window.innerHeight;
 
-        // Динамічно підганяємо resolution при ресайзі чи повороті екрана
         app.renderer.resolution = Math.min(window.devicePixelRatio || 1, 2);
         app.renderer.resize(w, h);
 
@@ -178,18 +204,15 @@ TextureSource.defaultOptions.scaleMode = 'linear';
 
         const isMobile = w < h;
 
-        // Виділяємо місце під нижню панель
         const uiHeight = isMobile ? 180 : 100;
         const availableHeight = h - uiHeight;
 
         if (isMobile) {
-            // МОБІЛКА: Сітка на всю ширину
             const scale = (w - 20) / GAME_CONFIG.LOGICAL_WIDTH;
             gameContainer.scale.set(scale);
             gameContainer.x = (w - GAME_CONFIG.LOGICAL_WIDTH * scale) / 2;
             gameContainer.y = Math.max(10, (availableHeight - GAME_CONFIG.LOGICAL_HEIGHT * scale) / 2);
         } else {
-            // ПК: Велике поле
             const scale = (availableHeight * 0.92) / GAME_CONFIG.LOGICAL_HEIGHT;
             gameContainer.scale.set(scale);
             gameContainer.x = (w - GAME_CONFIG.LOGICAL_WIDTH * scale) / 2;

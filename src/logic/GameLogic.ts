@@ -15,7 +15,7 @@ export class GameLogic {
     public bonusMode: number = 0; 
     public featureSpinMode: number = 0; 
 
-    private betSteps = [0.10, 0.20, 0.50, 1.00, 2.00, 5.00, 10.00, 20.00, 50.00, 100.00];
+    private betSteps = [0.10, 0.20, 0.40, 0.60, 0.80, 1.00, 1.20, 1.40, 1.60, 1.80, 2.00, 3.00, 4.00, 5.00, 6.00, 7.00, 8.00, 10.00, 15.00, 20.00, 25.00, 30.00, 35.00, 40.00, 45.00, 50.00, 75.00, 100.00];
 
     constructor() {
         this.resetGoldenSquares();
@@ -203,36 +203,60 @@ export class GameLogic {
 
     public processCascade(clusters: { col: number, row: number }[][]) {
         const removedPositionsGlobal = new Set<string>();
-        const winEvents: { positions: {col: number, row: number}[], clusterCenter: {col: number, row: number}[], winAmount: number }[] = [];
+        const winEvents: {
+            positions: { col: number, row: number, isWinner: boolean }[],
+            clusterCenter: { col: number, row: number }[],
+            winAmount: number,
+            symbol: string
+        }[] = [];
 
+        // ВАЖЛИВО: групуємо кластери по типу символу. Якщо на полі трапляються
+        // ДВА окремі непов'язані кластери одного й того ж символу (рідкісний,
+        // але можливий випадок), вони раніше рахувались як 2 окремі виграші і
+        // ПЛАТИЛИ ДВІЧІ за один і той самий тип, хоча символи фізично зникають
+        // одним "змахом" (правило "matching types visible on reels will vanish").
+        // Тепер на символ - лише ОДНА подія, розмір виплати - по найбільшому кластеру.
+        const groups = new Map<string, { col: number, row: number }[][]>();
         clusters.forEach(cluster => {
             const targetPos = cluster.find(pos => this.gridState[pos.col][pos.row] !== 'wild');
-            if (!targetPos) return;
-            const targetSymbol = this.gridState[targetPos.col][targetPos.row];
-            const winAmount = parseFloat((GAME_CONFIG.getMultiplier(targetSymbol, cluster.length) * this.currentBet).toFixed(2));
-            const symbolsToRemoveForThisEvent: {col: number, row: number}[] = [];
+            if (!targetPos) return; // кластер із самих вайлдів без жодного реального символу не платить
+            const symbol = this.gridState[targetPos.col][targetPos.row];
+            if (!groups.has(symbol)) groups.set(symbol, []);
+            groups.get(symbol)!.push(cluster);
+        });
 
+        groups.forEach((symbolClusters, targetSymbol) => {
+            const biggestCluster = symbolClusters.reduce((a, b) => a.length >= b.length ? a : b);
+            const winAmount = parseFloat((GAME_CONFIG.getMultiplier(targetSymbol, biggestCluster.length) * this.currentBet).toFixed(2));
+
+            // Клітинки, що ДІЙСНО були частиною виграшного кластера (для яскравої анімації)
+            const winnerPositionsSet = new Set<string>();
+            symbolClusters.forEach(cl => cl.forEach(pos => winnerPositionsSet.add(`${pos.col},${pos.row}`)));
+
+            const symbolsToRemoveForThisEvent: { col: number, row: number, isWinner: boolean }[] = [];
+
+            // Прибираємо АБСОЛЮТНО всі символи цього типу на полі (навіть ті, що поза кластером)
             for (let c = 0; c < GAME_CONFIG.COLS; c++) {
                 for (let r = 0; r < GAME_CONFIG.ROWS; r++) {
-                    if (this.gridState[c][r] === targetSymbol) {
-                        if (!removedPositionsGlobal.has(`${c},${r}`)) {
-                            symbolsToRemoveForThisEvent.push({ col: c, row: r });
-                            removedPositionsGlobal.add(`${c},${r}`);
-                        }
+                    if (this.gridState[c][r] === targetSymbol && !removedPositionsGlobal.has(`${c},${r}`)) {
+                        symbolsToRemoveForThisEvent.push({ col: c, row: r, isWinner: winnerPositionsSet.has(`${c},${r}`) });
+                        removedPositionsGlobal.add(`${c},${r}`);
                     }
                 }
             }
 
-            cluster.forEach(pos => {
-                if (!removedPositionsGlobal.has(`${pos.col},${pos.row}`)) {
-                    symbolsToRemoveForThisEvent.push(pos);
-                    removedPositionsGlobal.add(`${pos.col},${pos.row}`);
+            // Вайлди, що входили до кластера, теж мають зникнути і підсвітитись як переможні
+            symbolClusters.forEach(cl => cl.forEach(pos => {
+                const key = `${pos.col},${pos.row}`;
+                if (!removedPositionsGlobal.has(key)) {
+                    symbolsToRemoveForThisEvent.push({ col: pos.col, row: pos.row, isWinner: true });
+                    removedPositionsGlobal.add(key);
                 }
                 this.goldenSquares[pos.col][pos.row] = true;
-            });
+            }));
 
             if (winAmount > 0) {
-                winEvents.push({ positions: symbolsToRemoveForThisEvent, clusterCenter: cluster, winAmount });
+                winEvents.push({ positions: symbolsToRemoveForThisEvent, clusterCenter: biggestCluster, winAmount, symbol: targetSymbol });
                 this.currentWin = parseFloat((this.currentWin + winAmount).toFixed(2));
                 if (this.bonusMode > 0) this.totalBonusWin = parseFloat((this.totalBonusWin + winAmount).toFixed(2));
                 this.balance = parseFloat((this.balance + winAmount).toFixed(2));
@@ -265,6 +289,7 @@ export class GameLogic {
         return { winEvents, newState: this.gridState };
     }
 
+
     public hasPendingRainbow(): boolean {
         let hasGolden = false;
         let hasRainbow = false;
@@ -296,11 +321,11 @@ export class GameLogic {
                     let type = '';
                     let value = 0;
 
-                    // ЗМЕНШЕНА ЙМОВІРНІСТЬ ВИПАДАННЯ ГОРЩИКІВ (1.5%) ТА КОНЮШИНИ/СОНЦЯ (5%)
-                    if (rand < 0.015) { 
+                    // ЙМОВІРНІСТЬ ВИПАДАННЯ ГОРЩИКІВ (5%) ТА КОНЮШИНИ/СОНЦЯ (5%)
+                    if (rand < 0.05) { 
                         type = 'gorshok'; 
                     } 
-                    else if (rand < 0.065) { 
+                    else if (rand < 0.10) { 
                         type = 'klever'; 
                         value = GAME_CONFIG.RAINBOW_VALUES.CLOVER[Math.floor(Math.random() * GAME_CONFIG.RAINBOW_VALUES.CLOVER.length)]; 
                     } 
@@ -326,6 +351,15 @@ export class GameLogic {
         return { newState: this.gridState, revealedPositions };
     }
 
+    // --- ДИНАМІЧНА ЕВОЛЮЦІЯ МОНЕТ ---
+    // Визначає новий "колір"/тип монети виходячи з її поточної (помноженої) суми:
+    // 1-4 = бронза, 5-24 = срібло, 25+ = золото.
+    private getCoinTypeForValue(value: number): 'bronz' | 'silver' | 'gold' {
+        if (value >= 25) return 'gold';
+        if (value >= 5) return 'silver';
+        return 'bronz';
+    }
+
     public applyClovers() {
         const actions: { clover: any, multipliedCoins: any[] }[] = [];
         for (let c = 0; c < GAME_CONFIG.COLS; c++) {
@@ -343,12 +377,23 @@ export class GameLogic {
                     dirs.forEach(([dc, dr]) => {
                         const nc = c + dc, nr = r + dr;
                         if (nc >= 0 && nc < GAME_CONFIG.COLS && nr >= 0 && nr < GAME_CONFIG.ROWS) {
+                            const targetSym = this.gridState[nc][nr];
                             // Множимо ТІЛЬКИ якщо клітинка ЖОВТА (золотий квадрат)
-                            if (this.goldenSquares[nc][nr] && ['bronz', 'silver', 'gold', 'gorshok'].includes(this.gridState[nc][nr])) {
+                            if (this.goldenSquares[nc][nr] && ['bronz', 'silver', 'gold', 'gorshok'].includes(targetSym)) {
                                 const val = this.coinValues[nc][nr] || 0;
                                 if (val > 0) {
-                                    this.coinValues[nc][nr] = parseFloat((val * multiplier).toFixed(2));
-                                    affected.push({ col: nc, row: nr, newVal: this.coinValues[nc][nr] });
+                                    const newVal = parseFloat((val * multiplier).toFixed(2));
+                                    this.coinValues[nc][nr] = newVal;
+
+                                    // Казанок (gorshok) не має "кольору" монети - лишається казанком.
+                                    // А от бронза/срібло/золото можуть "еволюціонувати" по нашій новій сумі.
+                                    let newType: 'bronz' | 'silver' | 'gold' | null = null;
+                                    if (targetSym !== 'gorshok') {
+                                        newType = this.getCoinTypeForValue(newVal);
+                                        this.gridState[nc][nr] = newType;
+                                    }
+
+                                    affected.push({ col: nc, row: nr, newVal, newType });
                                 }
                             }
                         }
@@ -360,60 +405,102 @@ export class GameLogic {
         return actions;
     }
 
+    // --- ПОСЛІДОВНИЙ ЗБІР КАЗАНКІВ (справжній каскад) ---
+    // Обробляє РІВНО ОДИН "новий" (ще не активований) казанок за виклик:
+    // - Він забирає всі поточні монети на полі ПЛЮС суму з уже активного казанка (якщо такий є).
+    // - Активний казанок після цього зникає, звільняючи місце.
+    // - Викликач (main.ts) має після цього викликати fillInnerCascade() для звільнених клітинок,
+    //   застосувати конюшини ще раз, а потім знову викликати collectPots() - і так по колу,
+    //   доки не залишиться лише один фінальний казанок.
     public collectPots() {
-        const allPots: {col: number, row: number, isNew: boolean}[] = [];
-        const coins: {col: number, row: number}[] = [];
-        
+        let activePot: { col: number, row: number } | null = null;
+        const newPots: { col: number, row: number }[] = [];
+        const coins: { col: number, row: number }[] = [];
+
         for (let c = 0; c < GAME_CONFIG.COLS; c++) {
             for (let r = 0; r < GAME_CONFIG.ROWS; r++) {
-                if (this.gridState[c][r] === 'gorshok') {
-                    allPots.push({ col: c, row: r, isNew: !this.potCollected[c][r] });
-                }
-                else if (['bronz', 'silver', 'gold', 'klever'].includes(this.gridState[c][r])) {
+                const sym = this.gridState[c][r];
+                if (sym === 'gorshok') {
+                    if (this.potCollected[c][r]) {
+                        activePot = { col: c, row: r }; // вже накопичує суму
+                    } else {
+                        newPots.push({ col: c, row: r }); // ще не активований
+                    }
+                } else if (['bronz', 'silver', 'gold', 'klever'].includes(sym)) {
                     coins.push({ col: c, row: r });
                 }
             }
         }
 
-        const newPots = allPots.filter(p => p.isNew).sort((a, b) => a.row === b.row ? a.col - b.col : a.row - b.row);
-        const oldPots = allPots.filter(p => !p.isNew).sort((a, b) => a.row === b.row ? a.col - b.col : a.row - b.row);
+        newPots.sort((a, b) => a.row === b.row ? a.col - b.col : a.row - b.row);
 
-        if (newPots.length === 0) return { events: [], collectedSomething: false };
+        if (newPots.length === 0) {
+            return { events: [] as any[], collectedSomething: false, clearedForCascade: [] as { col: number, row: number }[] };
+        }
 
-        const events: any[] = [];
-        let activeSources = [...coins, ...oldPots];
+        // Беремо тільки ПЕРШИЙ (найвищий/найлівіший) новий казанок за цей виклик
+        const pot = newPots[0];
+        const sources = [...coins];
+        if (activePot) sources.push(activePot); // всмоктуємо суму попереднього казанка
 
-        newPots.forEach((pot) => {
-            let sum = 0;
-            activeSources.forEach(src => {
-                sum += (this.coinValues[src.col][src.row] || 0);
-            });
-            
-            this.coinValues[pot.col][pot.row] = parseFloat(sum.toFixed(2));
-            this.potCollected[pot.col][pot.row] = true;
-            
-            events.push({ pot, sources: activeSources, newPotValue: this.coinValues[pot.col][pot.row] });
-            activeSources = [pot]; 
-        });
+        let sum = 0;
+        sources.forEach(src => { sum += (this.coinValues[src.col][src.row] || 0); });
+
+        this.coinValues[pot.col][pot.row] = parseFloat(sum.toFixed(2));
+        this.potCollected[pot.col][pot.row] = true;
+
+        const clearedForCascade: { col: number, row: number }[] = [];
 
         coins.forEach(c => {
             this.gridState[c.col][c.row] = '';
             this.coinValues[c.col][c.row] = null;
+            clearedForCascade.push(c);
         });
-        oldPots.forEach(op => {
-            this.gridState[op.col][op.row] = '';
-            this.coinValues[op.col][op.row] = null;
-            this.potCollected[op.col][op.row] = false;
-        });
-        
-        for (let i = 0; i < newPots.length - 1; i++) {
-            const consumedPot = newPots[i];
-            this.gridState[consumedPot.col][consumedPot.row] = '';
-            this.coinValues[consumedPot.col][consumedPot.row] = null;
-            this.potCollected[consumedPot.col][consumedPot.row] = false;
+
+        if (activePot) {
+            this.gridState[activePot.col][activePot.row] = '';
+            this.coinValues[activePot.col][activePot.row] = null;
+            this.potCollected[activePot.col][activePot.row] = false;
+            clearedForCascade.push(activePot);
         }
 
-        return { events, collectedSomething: true };
+        const event = { pot, sources, newPotValue: this.coinValues[pot.col][pot.row], consumedPot: activePot };
+
+        return { events: [event], collectedSomething: true, clearedForCascade };
+    }
+
+    // Внутрішній каскад: заповнює щойно звільнені (золоті) клітинки новими символами -
+    // монетами чи конюшиною (казанки навмисно виключені, щоб уникнути нескінченного ланцюга).
+    public fillInnerCascade(positions: { col: number, row: number }[]) {
+        const revealed: { col: number, row: number, type: string, value: number }[] = [];
+
+        positions.forEach(({ col: c, row: r }) => {
+            if (!this.goldenSquares[c][r]) return; // заповнюємо лише золоті квадрати
+
+            const rand = Math.random();
+            let type = '';
+            let value = 0;
+
+            if (rand < 0.05) {
+                type = 'klever';
+                value = GAME_CONFIG.RAINBOW_VALUES.CLOVER[Math.floor(Math.random() * GAME_CONFIG.RAINBOW_VALUES.CLOVER.length)];
+            } else if (rand < 0.25) {
+                type = 'gold';
+                value = GAME_CONFIG.RAINBOW_VALUES.GOLD[Math.floor(Math.random() * GAME_CONFIG.RAINBOW_VALUES.GOLD.length)];
+            } else if (rand < 0.62) {
+                type = 'silver';
+                value = GAME_CONFIG.RAINBOW_VALUES.SILVER[Math.floor(Math.random() * GAME_CONFIG.RAINBOW_VALUES.SILVER.length)];
+            } else {
+                type = 'bronz';
+                value = GAME_CONFIG.RAINBOW_VALUES.BRONZE[Math.floor(Math.random() * GAME_CONFIG.RAINBOW_VALUES.BRONZE.length)];
+            }
+
+            this.gridState[c][r] = type;
+            this.coinValues[c][r] = value;
+            revealed.push({ col: c, row: r, type, value });
+        });
+
+        return revealed;
     }
 
     public endRainbowPhase() {

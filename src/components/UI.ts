@@ -33,9 +33,14 @@ export class UI extends Container {
     private modalPrices: { text: Text, multiplier: number }[] = [];
     private modalBetValue!: Text;
     
-    // Зберігаємо посилання на кнопки карток для зміни їх статусу
     private cardButtonData: { btnBg: Graphics, btnTxt: Text, mode: number, isFeature: boolean }[] = [];
     private currentFeatureMode: number = 0;
+
+    // --- ДОДАНІ ЗМІННІ ДЛЯ МОДАЛКИ ПІДТВЕРДЖЕННЯ ---
+    private confirmModal!: Container;
+    private confirmTitle!: Text;
+    private confirmPrice!: Text;
+    private pendingAction: (() => void) | null = null;
 
     public onSpinClick: () => void = () => {};
     public onBetChange: (direction: 1 | -1) => void = () => {};
@@ -52,6 +57,8 @@ export class UI extends Container {
         this.bonusModal.visible = false;
         this.addChild(this.bonusModal);
         this.buildBonusModal();
+
+        this.buildConfirmModal();
     }
 
     private buildBottomBar() {
@@ -225,15 +232,21 @@ export class UI extends Container {
             btn.addChild(btnBg, btnTxt); btn.position.set(0, 245);
 
             btn.on('pointerdown', () => btn.alpha = 0.8);
+            
+            // --- ТУТ МИ ВИКЛИКАЄМО ВІКНО ПІДТВЕРДЖЕННЯ ---
             btn.on('pointerup', () => { 
                 btn.alpha = 1; 
                 if (!this.dragState.dragMoved) {
-                    callback(); 
-                    if (!isFeature) {
-                        this.closeBonusModal(); // Куплені бонуски одразу закривають вікно, фічі — ні
-                    }
+                    const priceText = price.text; 
+                    this.openConfirmModal(title.replace('\n', ' '), priceText, () => {
+                        callback();
+                        // Головне меню покупки бонусів тепер автозакривається для ВСІХ опцій
+                        // (BonusHunt, Rainbow FeatureSpins і фріспіни) після підтвердження "OK"
+                        this.closeBonusModal();
+                    });
                 }
             });
+            
             btn.on('pointerupoutside', () => btn.alpha = 1);
 
             card.addChild(bg, tTxt, dTxt, mTxt, price, btn);
@@ -246,7 +259,6 @@ export class UI extends Container {
             }
         };
 
-        // Додаємо картки (перші дві — це фіче-спіни з можливістю Deactivate, інші дві — покупка бонусок)
         createCard('BONUSHUNT\nFEATURESPINS', '5 times more likely to trigger a bonus!', 3, 0xd35400, 1, true, () => this.onToggleFeatureSpins(1));
         createCard('RAINBOW\nFEATURESPINS', 'Each spin guarantees a Rainbow!', 50, 0xd35400, 2, true, () => this.onToggleFeatureSpins(2));
         createCard('LUCK OF THE\nBANDIT', 'Bonus with 8 free spins!', 100, 0x27ae60, 0, false, () => this.onBuyBonus(1));
@@ -260,6 +272,99 @@ export class UI extends Container {
         this.closeBtn.on('pointerdown', () => this.closeBonusModal());
         this.bonusModal.addChild(this.closeBtn);
     }
+
+    // --- ЛОГІКА ВІКНА ПІДТВЕРДЖЕННЯ ---
+    private buildConfirmModal() {
+        this.confirmModal = new Container();
+        this.confirmModal.visible = false;
+        this.addChild(this.confirmModal);
+
+        const overlay = new Graphics().rect(-3000, -3000, 8000, 8000).fill(0x000000);
+        overlay.alpha = 0.85; 
+        overlay.eventMode = 'static';
+        this.confirmModal.addChild(overlay);
+
+        const card = new Container();
+        card.name = 'confirmCard';
+        const bg = new Graphics().roundRect(0, 0, 320, 300, 20).fill(0xffffff);
+        card.addChild(bg);
+
+        this.confirmTitle = new Text({ 
+            text: '', 
+            style: new TextStyle({ fontSize: 18, fill: 0x000000, fontWeight: '900', align: 'center', wordWrap: true, wordWrapWidth: 300 }) 
+        });
+        this.confirmTitle.anchor.set(0.5, 0);
+        this.confirmTitle.position.set(160, 30);
+        card.addChild(this.confirmTitle);
+
+        this.confirmPrice = new Text({ 
+            text: '€0.00', 
+            style: new TextStyle({ fontSize: 28, fill: 0x000000, fontWeight: '900' }) 
+        });
+        this.confirmPrice.anchor.set(0.5, 0);
+        this.confirmPrice.position.set(160, 130);
+        card.addChild(this.confirmPrice);
+
+        const subText = new Text({ 
+            text: 'Will be subtracted from your balance', 
+            style: new TextStyle({ fontSize: 12, fill: 0x666666 }) 
+        });
+        subText.anchor.set(0.5, 0);
+        subText.position.set(160, 170);
+        card.addChild(subText);
+
+        const backBtn = new Container();
+        backBtn.eventMode = 'static'; backBtn.cursor = 'pointer';
+        const backBg = new Graphics().roundRect(0, 0, 140, 50, 10).fill(0xf39c12);
+        const backTxt = new Text({ text: 'BACK', style: new TextStyle({ fontSize: 18, fill: 0xffffff, fontWeight: 'bold' }) });
+        backTxt.anchor.set(0.5); backTxt.position.set(70, 25);
+        backBtn.addChild(backBg, backTxt);
+        backBtn.position.set(15, 230);
+        backBtn.on('pointerdown', () => backBtn.alpha = 0.8);
+        backBtn.on('pointerupoutside', () => backBtn.alpha = 1);
+        backBtn.on('pointerup', () => { backBtn.alpha = 1; this.closeConfirmModal(); });
+        card.addChild(backBtn);
+
+        const okBtn = new Container();
+        okBtn.eventMode = 'static'; okBtn.cursor = 'pointer';
+        const okBg = new Graphics().roundRect(0, 0, 140, 50, 10).fill(0x2ecc71);
+        const okTxt = new Text({ text: 'OK', style: new TextStyle({ fontSize: 18, fill: 0xffffff, fontWeight: 'bold' }) });
+        okTxt.anchor.set(0.5); okTxt.position.set(70, 25);
+        okBtn.addChild(okBg, okTxt);
+        okBtn.position.set(165, 230);
+        okBtn.on('pointerdown', () => okBtn.alpha = 0.8);
+        okBtn.on('pointerupoutside', () => okBtn.alpha = 1);
+        okBtn.on('pointerup', () => {
+            okBtn.alpha = 1;
+            if (this.pendingAction) this.pendingAction();
+            this.closeConfirmModal();
+        });
+        card.addChild(okBtn);
+
+        this.confirmModal.addChild(card);
+    }
+
+    public openConfirmModal(title: string, priceText: string, action: () => void) {
+        this.confirmTitle.text = title;
+        this.confirmPrice.text = priceText;
+        this.pendingAction = action;
+        this.confirmModal.visible = true;
+        this.updateConfirmLayout(window.innerWidth, window.innerHeight);
+    }
+
+    public closeConfirmModal() {
+        this.confirmModal.visible = false;
+        this.pendingAction = null;
+    }
+
+    private updateConfirmLayout(w: number, h: number) {
+        if (!this.confirmModal) return;
+        const card = this.confirmModal.getChildByName('confirmCard');
+        if (card) {
+            card.position.set((w - 320) / 2, (h - 300) / 2);
+        }
+    }
+    // ----------------------------------------------------
 
     public openBonusModal() { this.bonusModal.visible = true; }
     public closeBonusModal() { this.bonusModal.visible = false; }
@@ -340,19 +445,19 @@ export class UI extends Container {
                 this.closeBtn.position.set(this.cardsContainer.x + 1020 + 20, (h - 430) / 2 - 20);
             }
         }
+        
+        // Оновлюємо також позицію вікна підтвердження при зміні розміру
+        this.updateConfirmLayout(windowW, windowH);
     }
 
     public updateFeatureSpinButtons(mode: number) {
         this.currentFeatureMode = mode;
-        // Оновлюємо вигляд кнопок фіче-спінів у модалці
         this.cardButtonData.forEach(item => {
             item.btnBg.clear();
             if (item.mode === mode) {
-                // Якщо ця фіча активна — робимо кнопку червоною з надписом DEACTIVATE
                 item.btnBg.roundRect(0, 0, 240, 48, 15).fill(0xc0392b);
                 item.btnTxt.text = 'DEACTIVATE';
             } else {
-                // Якщо не активна — помаранчева з надписом ACTIVATE
                 item.btnBg.roundRect(0, 0, 240, 48, 15).fill(0xd35400);
                 item.btnTxt.text = 'ACTIVATE';
             }

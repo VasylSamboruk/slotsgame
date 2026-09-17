@@ -121,7 +121,6 @@ export class Grid extends Container {
 
     public async animateSpin(newGridState: string[][]): Promise<void> {
         return new Promise(resolve => {
-            // ФІКС: Більше НЕ стираємо золоті квадрати на старті спіну! 
             let completedCols = 0;
             for (let col = 0; col < GAME_CONFIG.COLS; col++) {
                 for (let row = 0; row < GAME_CONFIG.ROWS; row++) {
@@ -188,6 +187,56 @@ export class Grid extends Container {
             });
         }
         await this.dropCascadedSymbols(newGridState);
+    }
+
+    // Плавний перехід від фінального стану Веселки (фінальний казанок + залишки старих
+    // символів) до нового спіну: замість миттєвого "стрибка" все на полі спершу провалюється
+    // вниз за межі екрана, і тільки ПОЗА екраном міняється текстура на символи нового спіну,
+    // після чого вони природно залітають зверху. Жодного різкого перепаду для ока.
+    public async animateRainbowExitToSpin(newGridState: string[][]): Promise<void> {
+        return new Promise(resolve => {
+            let completedCols = 0;
+            for (let col = 0; col < GAME_CONFIG.COLS; col++) {
+                for (let row = 0; row < GAME_CONFIG.ROWS; row++) {
+                    const symbol = this.symbols[col][row];
+                    const text = this.coinTexts[col][row];
+
+                    gsap.killTweensOf(symbol);
+                    gsap.killTweensOf(symbol.scale);
+                    gsap.killTweensOf(text);
+
+                    // Захист від "застряглого" нульового масштабу після анімації збору монет/казанків
+                    if (symbol.scale.x < 0.05 || symbol.scale.y < 0.05) {
+                        symbol.scale.set(1);
+                    }
+
+                    const finalY = GAME_CONFIG.GAP + row * (GAME_CONFIG.SYMBOL_SIZE + GAME_CONFIG.GAP) + GAME_CONFIG.SYMBOL_SIZE / 2;
+
+                    gsap.to(symbol, {
+                        y: finalY + 800, duration: 0.3, delay: col * 0.08, ease: "power1.in",
+                        onComplete: () => {
+                            // Міняємо текстуру ПОЗА екраном - глядач цього не бачить
+                            this.updateSpriteTexture(col, row, newGridState[col][row]);
+                            symbol.alpha = 1;
+                            symbol.scale.set(1);
+                            text.alpha = 0;
+                            text.text = '';
+
+                            symbol.y = finalY - 800;
+                            gsap.to(symbol, {
+                                y: finalY, duration: 0.35, ease: "back.out(1.2)",
+                                onComplete: () => {
+                                    if (row === GAME_CONFIG.ROWS - 1) {
+                                        completedCols++;
+                                        if (completedCols === GAME_CONFIG.COLS) resolve();
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
+            }
+        });
     }
 
     public async hideRainbowSymbols(clearedPositions: {col: number, row: number}[]): Promise<void> {
@@ -397,6 +446,13 @@ export class Grid extends Container {
                     action.multipliedCoins.forEach((coin: any) => {
                         const text = this.coinTexts[coin.col][coin.row];
                         const coinSprite = this.symbols[coin.col][coin.row];
+
+                        // Динамічна еволюція монети: прямо в момент пульсації міняємо колір/текстуру,
+                        // якщо нова сума перетнула поріг (бронза -> срібло -> золото)
+                        if (coin.newType) {
+                            this.updateSpriteTexture(coin.col, coin.row, coin.newType);
+                        }
+
                         text.text = formatValue(coin.newVal);
                         
                         text.scale.set(1);
